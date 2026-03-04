@@ -152,6 +152,8 @@ def json_dumper(zfile: str) -> pd.DataFrame:
     datapoints = []
 
     try:
+        if hasattr(zfile, "seek"):
+            zfile.seek(0)
         with zipfile.ZipFile(zfile, "r") as zf:
             for f in zf.namelist():
                 logger.debug("Contained in zip: %s", f)
@@ -337,6 +339,8 @@ def extract_file_from_zip(zfile: str, file_to_extract: str) -> io.BytesIO:
     file_to_extract_bytes = io.BytesIO()
 
     try:
+        if hasattr(zfile, "seek"):
+            zfile.seek(0)
         with zipfile.ZipFile(zfile, "r") as zf:
             file_found = False
 

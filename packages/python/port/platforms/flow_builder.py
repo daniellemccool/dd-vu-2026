@@ -57,9 +57,9 @@ class FlowBuilder:
             file_prompt = self.generate_file_prompt()
             file_result = yield ph.render_page(self.UI_TEXT["submit_file_header"], file_prompt)
             
-            if file_result.__type__ == "PayloadString":
+            if file_result.__type__ == "PayloadFile":
                 validation = self.validate_file(file_result.value)
-                
+
                 # Happy flow: Valid file
                 if validation.get_status_code_id() == 0:
                     logger.info(f"Payload for {self.platform_name}")
@@ -68,7 +68,7 @@ class FlowBuilder:
                         self.table_list = yield from self.table_list
 
                     break
-                    
+
                 # Enter retry flow
                 if validation.get_status_code_id() != 0:
                     logger.info(f"Not a valid {self.platform_name} file; No payload; prompt retry_confirmation")

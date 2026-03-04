@@ -1,155 +1,105 @@
 # --------------------------------------------------------------------
-# This script provides a basic data donation flow using the standard
-# UI components and helper functions available in this package.
+# Multi-platform data donation script for the VU 2026 study.
 #
-# Researchers: copy this file and adapt it for your study. The three
-# things you will most likely change are:
-#   1. PLATFORM_NAME — the name of the platform you are collecting from
-#   2. extract_the_data_you_are_interested_in() — your actual extraction logic
-#   3. validate_the_participants_input() — your file validation logic
+# Participants are prompted for data from each platform in sequence.
+# For each platform:
+#   1. They are asked to submit their DDP zip file
+#   2. The file is validated for that platform
+#   3. Extracted data is shown for review and consent
+#   4. Donated data is sent per platform
 #
-# For a more advanced example using custom UI components, see:
-#   script_custom_ui.py
+# Platforms: LinkedIn, Instagram, Chrome, Facebook, YouTube, TikTok, X (Twitter)
 # --------------------------------------------------------------------
 
-import zipfile
 import json
-
-import pandas as pd
+import logging
 
 import port.api.props as props
-import port.api.d3i_props as d3i_props
 import port.helpers.port_helpers as ph
 
+import port.platforms.linkedin as linkedin
+import port.platforms.instagram as instagram
+import port.platforms.chrome as chrome
+import port.platforms.facebook as facebook
+import port.platforms.youtube as youtube
+import port.platforms.tiktok as tiktok
+import port.platforms.x as x
 
-PLATFORM_NAME = "Platform of interest"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s --- %(name)s --- %(levelname)s --- %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S%z",
+)
 
-SUBMIT_FILE_HEADER = props.Translatable({
-    "en": "Select your data download file",
-    "nl": "Selecteer uw databestand",
-})
-
-REVIEW_DATA_HEADER = props.Translatable({
-    "en": "Your data",
-    "nl": "Uw gegevens",
-})
-
-REVIEW_DATA_DESCRIPTION = props.Translatable({
-    "en": "Below you will find the data extracted from the file you submitted. Please review the data carefully and remove any information you do not wish to share. If you would like to share this data, click 'Yes, share for research' at the bottom of the page.",
-    "nl": "Hieronder ziet u de gegevens uit het bestand dat u heeft ingediend. Bekijk de gegevens zorgvuldig en verwijder wat u niet wilt delen. Als u de gegevens wilt delen, klik dan onderaan op 'Ja, deel voor onderzoek'.",
-})
-
-RETRY_HEADER = props.Translatable({
-    "en": "Try again",
-    "nl": "Probeer opnieuw",
-})
+logger = logging.getLogger("script")
 
 
 def process(session_id: str):
-    # Start of the data donation flow
-    while True:
-        # Ask the participant to submit a file
-        file_prompt = ph.generate_file_prompt("application/zip, text/plain")
-        file_prompt_result = yield ph.render_page(SUBMIT_FILE_HEADER, file_prompt)
+    logger.info("Starting the donation flow for session %s", session_id)
 
-        # If the participant submitted a file: continue
-        if file_prompt_result.__type__ == "PayloadFile":
+    platforms = [
+        ("LinkedIn",  linkedin.LinkedInFlow(session_id)),
+        ("Instagram", instagram.InstagramFlow(session_id)),
+        ("Chrome",    chrome.ChromeFlow(session_id)),
+        ("Facebook",  facebook.FacebookFlow(session_id)),
+        ("YouTube",   youtube.YouTubeFlow(session_id)),
+        ("TikTok",    tiktok.TikTokFlow(session_id)),
+        ("X",         x.XFlow(session_id)),
+    ]
 
-            # Validate the file the participant submitted
-            is_data_valid = validate_the_participants_input(file_prompt_result.value)
+    for platform_name, flow in platforms:
+        logger.info("Starting platform: %s", platform_name)
+        table_list = None
 
-            # Happy flow: file is valid
-            if is_data_valid:
-                extracted_data = extract_the_data_you_are_interested_in(file_prompt_result.value)
-                consent_prompt = ph.generate_review_data_prompt(
-                    description=REVIEW_DATA_DESCRIPTION,
-                    table_list=extracted_data,
-                )
-                result = yield ph.render_page(REVIEW_DATA_HEADER, consent_prompt)
-                if result.__type__ == "PayloadJSON":
-                    yield ph.donate(session_id, result.value)
-                if result.__type__ == "PayloadFalse":
-                    yield ph.donate(session_id, json.dumps({"status": "donation declined"}))
-                break
+        # File submission loop — keep prompting until valid file or skip
+        while True:
+            file_prompt = ph.generate_file_prompt("application/zip, text/plain")
+            file_result = yield ph.render_page(
+                flow.UI_TEXT["submit_file_header"], file_prompt
+            )
 
-            # Sad flow: file is invalid, ask to retry
-            else:
-                retry_prompt = ph.generate_retry_prompt(PLATFORM_NAME)
-                retry_result = yield ph.render_page(RETRY_HEADER, retry_prompt)
-                if retry_result.__type__ == "PayloadTrue":
-                    continue
-                else:
+            if file_result.__type__ == "PayloadFile":
+                validation = flow.validate_file(file_result.value)
+
+                if validation.get_status_code_id() == 0:
+                    logger.info("Valid %s file received", platform_name)
+                    table_list = flow.extract_data(file_result.value, validation)
                     break
 
-        # Participant pressed skip
-        else:
-            break
+                else:
+                    logger.info("Invalid %s file; prompting retry", platform_name)
+                    retry_prompt = ph.generate_retry_prompt(platform_name)
+                    retry_result = yield ph.render_page(
+                        flow.UI_TEXT["retry_header"], retry_prompt
+                    )
+                    if retry_result.__type__ == "PayloadTrue":
+                        continue
+                    else:
+                        break
 
-    yield ph.exit(0, "Success")
+            else:
+                logger.info("Skipped %s", platform_name)
+                break
 
-
-def extract_the_data_you_are_interested_in(file) -> list[d3i_props.PropsUIPromptConsentFormTableViz]:
-    """
-    Extract the data relevant to your research from the submitted file.
-
-    The `file` argument is a file-like object that can be passed directly
-    to zipfile.ZipFile(). Replace this implementation with your own
-    extraction logic.
-
-    Returns a list of PropsUIPromptConsentFormTableViz, one per table
-    you want to show the participant in the consent form.
-    """
-    tables = []
-
-    try:
-        zf = zipfile.ZipFile(file)
-        data = []
-        for name in zf.namelist():
-            info = zf.getinfo(name)
-            data.append((name, info.compress_size, info.file_size))
-
-        df = pd.DataFrame(data, columns=["File name", "Compressed size", "File size"])
-
-        table_title = props.Translatable({
-            "en": "Contents of your zip file",
-            "nl": "Inhoud van uw zip bestand",
-        })
-
-        # Example visualization — remove or replace as needed
-        wordcloud = {
-            "title": {"en": "File names", "nl": "Bestandsnamen"},
-            "type": "wordcloud",
-            "textColumn": "File name",
-            "tokenize": True,
-        }
-
-        tables.append(
-            d3i_props.PropsUIPromptConsentFormTableViz(
-                id="zip_contents",
-                title=table_title,
-                data_frame=df,
-                visualizations=[wordcloud],
-                delete_option=True,
-                data_frame_max_size=10000,
+        # Consent and donation
+        if table_list is not None:
+            logger.info("Showing consent for %s", platform_name)
+            review_prompt = ph.generate_review_data_prompt(
+                description=flow.UI_TEXT["review_data_description"],
+                table_list=table_list,
             )
-        )
+            consent_result = yield ph.render_page(
+                flow.UI_TEXT["review_data_header"], review_prompt
+            )
 
-    except Exception as e:
-        print(f"Something went wrong extracting data: {e}")
+            if consent_result.__type__ == "PayloadJSON":
+                logger.info("Data donated for %s", platform_name)
+                yield ph.donate(f"{session_id}-{platform_name.lower()}", consent_result.value)
+            elif consent_result.__type__ == "PayloadFalse":
+                yield ph.donate(
+                    f"{session_id}-{platform_name.lower()}",
+                    json.dumps({"status": "donation declined"}),
+                )
 
-    return tables
-
-
-def validate_the_participants_input(file) -> bool:
-    """
-    Check that the participant submitted a valid zip file.
-
-    The `file` argument is a file-like object. Extend this function
-    to check for expected file contents, language, or structure.
-    Returns True if valid, False otherwise.
-    """
-    try:
-        with zipfile.ZipFile(file):
-            return True
-    except zipfile.BadZipFile:
-        return False
+    logger.info("All platforms complete")
+    yield ph.exit(0, "Success")

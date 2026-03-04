@@ -229,6 +229,8 @@ def validate_zip(ddp_categories: list[DDPCategory], path_to_zip: str) -> Validat
     validate = ValidateInput(status_codes, ddp_categories)
 
     try:
+        if hasattr(path_to_zip, "seek"):
+            path_to_zip.seek(0)
         paths = []
         with zipfile.ZipFile(path_to_zip, "r") as zf:
             for f in zf.namelist():
