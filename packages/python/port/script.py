@@ -15,6 +15,7 @@ import json
 import logging
 
 import port.api.props as props
+import port.api.commands as commands
 import port.helpers.port_helpers as ph
 
 import port.platforms.linkedin as linkedin
@@ -39,11 +40,11 @@ def process(session_id: str):
 
     platforms = [
         ("LinkedIn",  linkedin.LinkedInFlow(session_id)),
-        ("Instagram", instagram.InstagramFlow(session_id)),
-        ("Chrome",    chrome.ChromeFlow(session_id)),
-        ("Facebook",  facebook.FacebookFlow(session_id)),
-        ("YouTube",   youtube.YouTubeFlow(session_id)),
-        ("TikTok",    tiktok.TikTokFlow(session_id)),
+        # ("Instagram", instagram.InstagramFlow(session_id)),
+        # ("Chrome",    chrome.ChromeFlow(session_id)),
+        # ("Facebook",  facebook.FacebookFlow(session_id)),
+        # ("YouTube",   youtube.YouTubeFlow(session_id)),
+        # ("TikTok",    tiktok.TikTokFlow(session_id)),
         ("X",         x.XFlow(session_id)),
     ]
 
@@ -102,4 +103,4 @@ def process(session_id: str):
                 )
 
     logger.info("All platforms complete")
-    yield ph.exit(0, "Success")
+    yield commands.CommandUIRender(props.PropsUIPageEnd())
