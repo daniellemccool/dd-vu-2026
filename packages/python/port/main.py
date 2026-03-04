@@ -1,6 +1,5 @@
 from collections.abc import Generator
-# from port.d3i_example_script import process
-from port.uu_facebook_crime_script import process
+from port.script import process
 from port.script import process as process_example
 from port.api.commands import CommandSystemExit
 from port.api.file_utils import AsyncFileAdapter
