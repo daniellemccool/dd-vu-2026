@@ -35,10 +35,10 @@ logging.basicConfig(
 logger = logging.getLogger("script")
 
 
-def process(session_id: str):
+def process(session_id: str, platform: str | None = None):
     logger.info("Starting the donation flow for session %s", session_id)
 
-    platforms = [
+    all_platforms = [
         ("LinkedIn",  linkedin.LinkedInFlow(session_id)),
         # ("Instagram", instagram.InstagramFlow(session_id)),
         # ("Chrome",    chrome.ChromeFlow(session_id)),
@@ -47,6 +47,16 @@ def process(session_id: str):
         # ("TikTok",    tiktok.TikTokFlow(session_id)),
         ("X",         x.XFlow(session_id)),
     ]
+
+    if platform and platform not in ("undefined", ""):
+        platforms = [(name, flow) for name, flow in all_platforms if name.lower() == platform.lower()]
+        if not platforms:
+            logger.warning("Unknown platform '%s', running all platforms", platform)
+            platforms = all_platforms
+        else:
+            logger.info("Running single-platform build for: %s", platform)
+    else:
+        platforms = all_platforms
 
     for platform_name, flow in platforms:
         logger.info("Starting platform: %s", platform_name)

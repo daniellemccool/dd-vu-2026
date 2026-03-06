@@ -74,7 +74,9 @@ export default class WorkerProcessingEngine  {
   }
 
   firstRunCycle (): void {
-    this.worker.postMessage({ eventType: 'firstRunCycle', sessionId: this.sessionId })
+    const meta: any = import.meta
+    const platform = meta.env.VITE_PLATFORM
+    this.worker.postMessage({ eventType: 'firstRunCycle', sessionId: this.sessionId, platform })
   }
 
   nextRunCycle (response: Response): void {
