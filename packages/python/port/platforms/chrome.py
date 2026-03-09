@@ -35,6 +35,7 @@ DDP_CATEGORIES = [
             "Autofill.json",
             "Bookmarks.html",
             "BrowserHistory.json",
+            "History.json",
             "Device Information.json",
             "Dictionary.csv",
             "Extensions.json",
@@ -90,14 +91,13 @@ class _BookmarkParser(HTMLParser):
 
 def browser_history_to_df(chrome_zip) -> pd.DataFrame:
     """
-    Extract browser history from BrowserHistory.json or Geschiedenis.json (NL).
+    Extract browser history from History.json, BrowserHistory.json, or Geschiedenis.json (NL).
     """
-    b = eh.extract_file_from_zip(chrome_zip, "Geschiedenis.json")
-    d = eh.read_json_from_bytes(b)
-
-    if not d:
-        b = eh.extract_file_from_zip(chrome_zip, "BrowserHistory.json")
+    for filename in ("Geschiedenis.json", "BrowserHistory.json", "History.json"):
+        b = eh.extract_file_from_zip(chrome_zip, filename)
         d = eh.read_json_from_bytes(b)
+        if d:
+            break
 
     out = pd.DataFrame()
     datapoints = []
@@ -108,11 +108,12 @@ def browser_history_to_df(chrome_zip) -> pd.DataFrame:
             datapoints.append((
                 item.get("title", None),
                 item.get("url", None),
-                item.get("page_transition", None),
+                item.get("page_transition_qualifier") or item.get("page_transition"),
                 eh.epoch_to_iso(item.get("time_usec", 0) / 1_000_000),
             ))
 
         out = pd.DataFrame(datapoints, columns=["Title", "Url", "Transition", "Date"])
+        out = out.sort_values("Date", ascending=False).head(10_000).reset_index(drop=True)
     except Exception as e:
         logger.error("Exception caught: %s", e)
 
@@ -139,10 +140,13 @@ def bookmarks_to_df(chrome_zip) -> pd.DataFrame:
 
 def omnibox_to_df(chrome_zip) -> pd.DataFrame:
     """
-    Extract omnibox (address bar) history from Omnibox.json.
+    Extract omnibox (address bar) history from Omnibox.json or History.json (Typed Url key).
     """
-    b = eh.extract_file_from_zip(chrome_zip, "Omnibox.json")
-    d = eh.read_json_from_bytes(b)
+    for filename in ("Omnibox.json", "History.json"):
+        b = eh.extract_file_from_zip(chrome_zip, filename)
+        d = eh.read_json_from_bytes(b)
+        if d:
+            break
 
     out = pd.DataFrame()
     datapoints = []
@@ -185,7 +189,6 @@ def extraction(chrome_zip) -> list:
                     "tokenize": False,
                 }
             ],
-            data_frame_max_size=10000,
         ),
         d3i_props.PropsUIPromptConsentFormTableViz(
             id="chrome_bookmarks",
@@ -198,7 +201,6 @@ def extraction(chrome_zip) -> list:
                 "en": "Websites you have bookmarked in Chrome",
                 "nl": "Websites die u heeft opgeslagen als bladwijzer in Chrome",
             }),
-            data_frame_max_size=10000,
         ),
         d3i_props.PropsUIPromptConsentFormTableViz(
             id="chrome_omnibox",
@@ -211,7 +213,6 @@ def extraction(chrome_zip) -> list:
                 "en": "URLs you have typed directly into the Chrome address bar",
                 "nl": "URLs die u direct in de Chrome adresbalk heeft ingevoerd",
             }),
-            data_frame_max_size=10000,
         ),
     ]
 
