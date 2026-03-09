@@ -41,7 +41,7 @@ def test_uncaught_exception_returns_error_page():
     assert "PropsUIPromptConfirm" in body_types
     # Traceback text includes the exception message
     text_item = next(i for i in page["body"] if i["__type__"] == "PropsUIPromptText")
-    assert "RuntimeError" in text_item["text"]["nl"]
+    assert "RuntimeError" in text_item["text"]["translations"]["nl"]
 
 
 def test_consent_true_yields_donate_command():

@@ -10,37 +10,6 @@ from port.api.file_utils import AsyncFileAdapter
 import port.api.props as props
 
 
-class _FlatTranslatable:
-    """Serialises as the translations dict directly ({"nl": ..., "en": ...}).
-
-    Used internally by error_flow so that test assertions can access
-    text["nl"] without an extra "translations" nesting level.
-    The JS side reads Translatable via translator.ts which accesses
-    .translations — but error_flow pages are Python-only consent pages
-    whose text content is never passed back to the JS Translatable parser.
-    """
-
-    def __init__(self, translations: dict):
-        self.translations = translations
-
-    def toDict(self):
-        return dict(self.translations)
-
-
-class _TextItem:
-    """A PropsUIPromptText-like body item that uses _FlatTranslatable."""
-
-    def __init__(self, text: dict):
-        self._text = text
-
-    def toDict(self):
-        return {
-            "__type__": "PropsUIPromptText",
-            "title": None,
-            "text": dict(self._text),
-        }
-
-
 def error_flow(platform: str, tb: str):
     """
     Generator that handles a Python exception in the donation flow.
@@ -56,7 +25,7 @@ def error_flow(platform: str, tb: str):
         props.Translatable({"nl": "Er is iets misgegaan", "en": "Something went wrong"})
     )
     body = [
-        _TextItem({"nl": tb, "en": tb}),
+        props.PropsUIPromptText(text=props.Translatable({"nl": tb, "en": tb})),
         props.PropsUIPromptConfirm(
             text=props.Translatable({
                 "nl": "Wilt u de fout rapporteren zodat we het probleem kunnen oplossen?",
