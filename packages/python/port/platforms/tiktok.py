@@ -101,6 +101,7 @@ def activity_summary_to_df(data: dict) -> pd.DataFrame:
             if key in summary
         ]
         out = pd.DataFrame(rows, columns=["Metric", "Count"])  # pyright: ignore
+        out = out.rename(columns={"Metric": "Metriek", "Count": "Aantal"})
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -127,6 +128,7 @@ def settings_to_df(data: dict) -> pd.DataFrame:
             if key in settings_map
         ]
         out = pd.DataFrame(rows, columns=["Setting", "Keywords"])  # pyright: ignore
+        out = out.rename(columns={"Setting": "Instelling", "Keywords": "Trefwoorden"})
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -149,6 +151,7 @@ def favorite_videos_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [(item.get("Date", ""), item.get("Link", "")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "Link"])  # pyright: ignore
+        out = out.rename(columns={"Date": "Datum"})
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -171,6 +174,7 @@ def follower_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [(item.get("Date", ""), item.get("UserName", "")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "UserName"])  # pyright: ignore
+        out = out.rename(columns={"Date": "Datum", "UserName": "Gebruikersnaam"})
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -193,6 +197,7 @@ def following_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [(item.get("Date", ""), item.get("UserName", "")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "UserName"])  # pyright: ignore
+        out = out.rename(columns={"Date": "Datum", "UserName": "Gebruikersnaam"})
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -218,6 +223,7 @@ def hashtag_to_df(data: dict) -> pd.DataFrame:
             for item in items
         ]
         out = pd.DataFrame(rows, columns=["HashtagName", "HashtagLink"])  # pyright: ignore
+        out = out.rename(columns={"HashtagName": "Hashtagnaam", "HashtagLink": "Hashtag-link"})
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -240,6 +246,7 @@ def like_list_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [(item.get("Date", ""), item.get("Link", "")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "Link"])  # pyright: ignore
+        out = out.rename(columns={"Date": "Datum"})
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -262,6 +269,7 @@ def searches_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [(item.get("Date", ""), item.get("SearchTerm", "")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "SearchTerm"])  # pyright: ignore
+        out = out.rename(columns={"Date": "Datum", "SearchTerm": "Zoekterm"})
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -292,6 +300,11 @@ def share_history_to_df(data: dict) -> pd.DataFrame:
             for item in items
         ]
         out = pd.DataFrame(rows, columns=["Date", "SharedContent", "Link", "Method"])  # pyright: ignore
+        out = out.rename(columns={
+            "Date": "Datum",
+            "SharedContent": "Gedeelde inhoud",
+            "Method": "Methode",
+        })
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -314,6 +327,7 @@ def watch_history_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [(item.get("Date", ""), item.get("Link", "")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "Link"])  # pyright: ignore
+        out = out.rename(columns={"Date": "Datum"})
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -339,6 +353,7 @@ def comments_to_df(data: dict) -> pd.DataFrame:
             for item in items
         ]
         out = pd.DataFrame(rows, columns=["Date", "Comment", "Photo", "Url"])  # pyright: ignore
+        out = out.rename(columns={"Date": "Datum", "Comment": "Reactie", "Photo": "Foto", "Url": "URL"})
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -463,7 +478,7 @@ def extraction(tiktok_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTableV
                 {
                     "title": {"en": "Most searched terms", "nl": "Meest gezochte termen"},
                     "type": "wordcloud",
-                    "textColumn": "SearchTerm",
+                    "textColumn": "Zoekterm",
                     "tokenize": False,
                 }
             ],
@@ -498,7 +513,7 @@ def extraction(tiktok_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTableV
                         "nl": "Meest voorkomende woorden in je reacties",
                     },
                     "type": "wordcloud",
-                    "textColumn": "Comment",
+                    "textColumn": "Reactie",
                     "tokenize": True,
                 }
             ],
