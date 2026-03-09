@@ -58,12 +58,12 @@ SCHEMAS = {
         "linkedin_search_queries":   {"Tijd", "Zoekterm"},
     },
     "x": {
-        "x_follower":      {"Link to user"},
-        "x_following":     {"Link to user"},
-        "x_block":         {"Blocked users"},
-        "x_like":          {"Tweet Id", "Tweet"},
-        "x_tweet":         {"Date", "Tweet", "Retweeted"},
-        "x_tweet_headers": {"Tweet id", "User id", "Created at"},
+        "x_follower":      {"Link naar gebruiker"},
+        "x_following":     {"Link naar gebruiker"},
+        "x_block":         {"Geblokkeerde gebruikers"},
+        "x_like":          {"Tweet-id", "Tweet"},
+        "x_tweet":         {"Datum", "Tweet", "Geretweet"},
+        "x_tweet_headers": {"Tweet-id", "Gebruiker-id", "Aangemaakt op"},
     },
 }
 
