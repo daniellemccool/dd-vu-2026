@@ -249,6 +249,18 @@ def extraction(linkedin_zip: str) -> list:
             ]
         ),
         
+        d3i_props.PropsUIPromptConsentFormTableViz(
+            id="linkedin_connections",
+            data_frame=connections_to_df(linkedin_zip),
+            title=props.Translatable({
+                "en": "Your LinkedIn connections",
+                "nl": "Je LinkedIn-connecties"
+            }),
+            description=props.Translatable({
+                "en": "List of people you are connected with on LinkedIn",
+                "nl": "Lijst van mensen met wie je verbonden bent op LinkedIn"
+            })
+        ),
         # Search queries
         d3i_props.PropsUIPromptConsentFormTableViz(
             id="linkedin_search_queries",
