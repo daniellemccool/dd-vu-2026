@@ -34,6 +34,51 @@ logging.basicConfig(
 
 logger = logging.getLogger("script")
 
+# File safety constants and exceptions
+_MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB
+_CHUNKED_EXPORT_BYTES = 2 * 1024 * 1024 * 1024  # exactly 2 GB — split export sentinel
+
+
+class FileTooLargeError(Exception):
+    """Raised when the donated file exceeds the maximum processable size."""
+
+
+class ChunkedExportError(Exception):
+    """
+    Raised when the file is exactly 2 GB, indicating a split export.
+
+    Google Takeout and some other platforms split exports at 2 GB boundaries.
+    A file at exactly this size is almost certainly an incomplete chunk.
+    """
+
+
+def check_file_safety(file_obj):
+    """
+    Check file size before extraction.
+
+    Raises:
+        ChunkedExportError: If size is exactly 2 GB.
+        FileTooLargeError: If size exceeds _MAX_FILE_BYTES.
+    """
+    size = file_obj.size
+
+    if size == _CHUNKED_EXPORT_BYTES:
+        raise ChunkedExportError(
+            f"Dit bestand is precies 2 GB groot. Exportbestanden worden soms "
+            f"gesplitst bij 2 GB — dit bestand is waarschijnlijk onvolledig. "
+            f"Controleer of u alle exportbestanden heeft. "
+            f"(This file is exactly 2 GB. Exports are sometimes split at 2 GB "
+            f"boundaries — this file may be incomplete.)"
+        )
+
+    size_gb = size / (1024 * 1024 * 1024)
+    if size > _MAX_FILE_BYTES:
+        raise FileTooLargeError(
+            f"Bestand te groot: {size_gb:.1f} GB (maximum: 2 GB). "
+            f"Probeer een kleinere export. "
+            f"(File too large: {size_gb:.1f} GB, maximum: 2 GB.)"
+        )
+
 
 def process(session_id: str, platform: str | None = None):
     logger.info("Starting the donation flow for session %s", session_id)
@@ -70,6 +115,7 @@ def process(session_id: str, platform: str | None = None):
             )
 
             if file_result.__type__ == "PayloadFile":
+                check_file_safety(file_result.value)  # raises FileTooLargeError or ChunkedExportError
                 validation = flow.validate_file(file_result.value)
 
                 if validation.get_status_code_id() == 0:
