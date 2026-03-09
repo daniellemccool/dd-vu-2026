@@ -168,7 +168,10 @@ def extraction(linkedin_zip: str) -> list:
     tables = [
         d3i_props.PropsUIPromptConsentFormTableViz(
             id="linkedin_ads_clicked",
-            data_frame=ads_clicked_to_df(linkedin_zip),
+            data_frame=ads_clicked_to_df(linkedin_zip).rename(columns={
+                "Ad clicked Date": "Advertentiedatum",
+                "Ad Title/Id": "Advertentietitel/id",
+            }),
             title=props.Translatable({
                 "en": "Ads you clicked on",
                 "nl": "Ads clicked"
@@ -180,7 +183,10 @@ def extraction(linkedin_zip: str) -> list:
         ),
         d3i_props.PropsUIPromptConsentFormTableViz(
             id="linkedin_comments",
-            data_frame=comments_to_df(linkedin_zip),
+            data_frame=comments_to_df(linkedin_zip).rename(columns={
+                "Date": "Datum",
+                "Message": "Bericht",
+            }),
             title=props.Translatable({
                 "en": "Your comments on LinkedIn",
                 "nl": "Comments"
@@ -196,14 +202,17 @@ def extraction(linkedin_zip: str) -> list:
                         "nl": "Words in your comments"
                     },
                     "type": "wordcloud",
-                    "textColumn": "Message",
+                    "textColumn": "Bericht",
                     "tokenize": True
                 }
             ]
         ),
         d3i_props.PropsUIPromptConsentFormTableViz(
             id="linked_in_company_follows",
-            data_frame=company_follows_to_df(linkedin_zip),
+            data_frame=company_follows_to_df(linkedin_zip).rename(columns={
+                "Organization": "Organisatie",
+                "Followed On": "Gevolgd op",
+            }),
             title=props.Translatable({
                 "en": "Companies you follow",
                 "nl": "Company follows"
@@ -215,7 +224,14 @@ def extraction(linkedin_zip: str) -> list:
         ),
         d3i_props.PropsUIPromptConsentFormTableViz(
             id="linkedin_shares",
-            data_frame=shares_to_df(linkedin_zip),
+            data_frame=shares_to_df(linkedin_zip).rename(columns={
+                "Date": "Datum",
+                "ShareLink": "Gedeelde link",
+                "ShareCommentary": "Gedeelde tekst",
+                "SharedUrl": "Gedeelde URL",
+                "MediaUrl": "Media-URL",
+                "Visibility": "Zichtbaarheid",
+            }),
             title=props.Translatable({
                 "en": "Posts you shared on LinkedIn",
                 "nl": "Shares"
@@ -227,7 +243,9 @@ def extraction(linkedin_zip: str) -> list:
         ),
         d3i_props.PropsUIPromptConsentFormTableViz(
             id="linkedin_reactions",
-            data_frame=reactions_to_df(linkedin_zip),
+            data_frame=reactions_to_df(linkedin_zip).rename(columns={
+                "Date": "Datum",
+            }),
             title=props.Translatable({
                 "en": "Your reactions on LinkedIn",
                 "nl": "Reactions"
@@ -251,7 +269,14 @@ def extraction(linkedin_zip: str) -> list:
         
         d3i_props.PropsUIPromptConsentFormTableViz(
             id="linkedin_connections",
-            data_frame=connections_to_df(linkedin_zip),
+            data_frame=connections_to_df(linkedin_zip).rename(columns={
+                "First Name": "Voornaam",
+                "Last Name": "Achternaam",
+                "Email Address": "E-mailadres",
+                "Company": "Bedrijf",
+                "Position": "Functie",
+                "Connected On": "Verbonden op",
+            }),
             title=props.Translatable({
                 "en": "Your LinkedIn connections",
                 "nl": "Je LinkedIn-connecties"
@@ -264,7 +289,10 @@ def extraction(linkedin_zip: str) -> list:
         # Search queries
         d3i_props.PropsUIPromptConsentFormTableViz(
             id="linkedin_search_queries",
-            data_frame=search_queries_to_df(linkedin_zip),
+            data_frame=search_queries_to_df(linkedin_zip).rename(columns={
+                "Time": "Tijd",
+                "Search Query": "Zoekterm",
+            }),
             title=props.Translatable({
                 "en": "Your search queries on LinkedIn",
                 "nl": "Search queries"
@@ -280,7 +308,7 @@ def extraction(linkedin_zip: str) -> list:
                         "nl": "What you searched for on Linkedin"
                     },
                     "type": "wordcloud",
-                    "textColumn": "Search Query",
+                    "textColumn": "Zoekterm",
                     "tokenize": True
                 }
             ]

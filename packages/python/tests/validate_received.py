@@ -49,13 +49,13 @@ def rule(): print("-" * 56)
 
 SCHEMAS = {
     "linkedin": {
-        "linkedin_ads_clicked":      {"Ad clicked Date", "Ad Title/Id"},
-        "linkedin_comments":         {"Date", "Link", "Message"},
-        "linked_in_company_follows": {"Organization", "Followed On"},
-        "linkedin_shares":           {"Date", "ShareLink", "ShareCommentary",
-                                      "SharedUrl", "MediaUrl", "Visibility"},
-        "linkedin_reactions":        {"Date", "Type", "Link"},
-        "linkedin_search_queries":   {"Time", "Search Query"},
+        "linkedin_ads_clicked":      {"Advertentiedatum", "Advertentietitel/id"},
+        "linkedin_comments":         {"Datum", "Link", "Bericht"},
+        "linked_in_company_follows": {"Organisatie", "Gevolgd op"},
+        "linkedin_shares":           {"Datum", "Gedeelde link", "Gedeelde tekst",
+                                      "Gedeelde URL", "Media-URL", "Zichtbaarheid"},
+        "linkedin_reactions":        {"Datum", "Type", "Link"},
+        "linkedin_search_queries":   {"Tijd", "Zoekterm"},
     },
     "x": {
         "x_follower":      {"Link to user"},
