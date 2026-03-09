@@ -52,6 +52,21 @@ class ChunkedExportError(Exception):
     """
 
 
+def handle_donate_result(result) -> bool:
+    """
+    Inspect the result of a yield ph.donate() call.
+
+    Returns True if result is None (fire-and-forget / D3I mono),
+    non-PayloadResponse, or PayloadResponse with success=True.
+    Returns False if PayloadResponse with success=False.
+    """
+    if result is None:
+        return True
+    if getattr(result, "__type__", None) != "PayloadResponse":
+        return True
+    return bool(result.value.success)
+
+
 def check_file_safety(file_obj):
     """
     Check file size before extraction.
@@ -151,12 +166,34 @@ def process(session_id: str, platform: str | None = None):
 
             if consent_result.__type__ == "PayloadJSON":
                 logger.info("Data donated for %s", platform_name)
-                yield ph.donate(f"{session_id}-{platform_name.lower()}", consent_result.value)
+                donate_result = yield ph.donate(
+                    f"{session_id}-{platform_name.lower()}", consent_result.value
+                )
+                if not handle_donate_result(donate_result):
+                    logger.error("Donation failed for %s", platform_name)
+                    yield ph.render_page(
+                        props.Translatable({
+                            "nl": "Verzenden mislukt",
+                            "en": "Upload failed",
+                        }),
+                        props.PropsUIPromptConfirm(
+                            text=props.Translatable({
+                                "nl": "Uw gegevens konden niet worden opgestuurd. "
+                                      "Neem contact op met de onderzoekers.",
+                                "en": "Your data could not be sent. "
+                                      "Please contact the research team.",
+                            }),
+                            ok=props.Translatable({"nl": "Sluiten", "en": "Close"}),
+                            cancel=props.Translatable({"nl": "Sluiten", "en": "Close"}),
+                        ),
+                    )
+                    return
             elif consent_result.__type__ == "PayloadFalse":
                 yield ph.donate(
                     f"{session_id}-{platform_name.lower()}",
                     json.dumps({"status": "donation declined"}),
                 )
+                # decline donations are fire-and-forget; ignore result
 
     logger.info("All platforms complete")
     yield commands.CommandUIRender(props.PropsUIPageEnd())
