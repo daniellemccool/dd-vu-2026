@@ -130,52 +130,6 @@ def find_items(d: dict[Any, Any], key_to_match: str) -> list:
     return out
 
 
-def json_dumper(zfile: str) -> pd.DataFrame:
-    """
-    Reads all JSON files in a zip file, flattens them, and combines them into a single DataFrame.
-
-    Args:
-        zfile (str): Path to the zip file containing JSON files.
-
-    Returns:
-        pd.DataFrame: A DataFrame containing flattened data from all JSON files in the zip.
-
-    Raises:
-        Exception: Logs an error message if an exception occurs during the process.
-
-    Examples::
-
-        >>> df = json_dumper("data.zip")
-        >>> print(df.head())
-    """
-    out = pd.DataFrame()
-    datapoints = []
-
-    try:
-        if hasattr(zfile, "seek"):
-            zfile.seek(0)
-        with zipfile.ZipFile(zfile, "r") as zf:
-            for f in zf.namelist():
-                logger.debug("Contained in zip: %s", f)
-                fp = Path(f)
-                if fp.suffix == ".json":
-                    b = io.BytesIO(zf.read(f))
-                    d = dict_denester(unzipddp.read_json_from_bytes(b))
-                    for k, v in d.items():
-                        datapoints.append({
-                            "file name": fp.name, 
-                            "key": k,
-                            "value": v
-                        })
-
-        out = pd.DataFrame(datapoints)
-
-    except Exception as e:
-        logger.error("Exception was caught:  %s", e)
-
-    return out
-
-
 def fix_ascii_string(input: str) -> str:
     """
     Fixes the string encoding by removing non-ASCII characters.
