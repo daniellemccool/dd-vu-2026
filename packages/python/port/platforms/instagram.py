@@ -99,6 +99,7 @@ def followers_to_df(instagram_zip: str) -> pd.DataFrame:
             ))
         out = pd.DataFrame(datapoints, columns=["Account", "Link", "Date"]) # pyright: ignore
         out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
+        out = out.rename(columns={"Date": "Datum"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -124,6 +125,7 @@ def profile_searches_to_df(instagram_zip: str) -> pd.DataFrame:
             ))
         out = pd.DataFrame(datapoints, columns=["Timestamp", "Name"]) # pyright: ignore
         out = out.sort_values(by="Timestamp", key=eh.sort_isotimestamp_empty_timestamp_last)
+        out = out.rename(columns={"Timestamp": "Datum en tijd", "Name": "Naam"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -152,6 +154,7 @@ def saved_posts_to_df(instagram_zip: str) -> pd.DataFrame:
             ))
         out = pd.DataFrame(datapoints, columns=["Title", "Href", "Timestamp"]) # pyright: ignore
         out = out.sort_values(by="Timestamp", key=eh.sort_isotimestamp_empty_timestamp_last)
+        out = out.rename(columns={"Title": "Titel", "Href": "URL", "Timestamp": "Datum en tijd"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -183,6 +186,7 @@ def posts_viewed_to_df(instagram_zip: str) -> pd.DataFrame:
             ))
         out = pd.DataFrame(datapoints, columns=["Author", "Date"]) # pyright: ignore
         out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
+        out = out.rename(columns={"Author": "Auteur", "Date": "Datum"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -215,6 +219,7 @@ def videos_watched_to_df(instagram_zip: str) -> pd.DataFrame:
             ))
         out = pd.DataFrame(datapoints, columns=["Author", "Date"]) # pyright: ignore
         out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
+        out = out.rename(columns={"Author": "Auteur", "Date": "Datum"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -241,6 +246,7 @@ def following_to_df(instagram_zip: str) -> pd.DataFrame:
             ))
         out = pd.DataFrame(datapoints, columns=["Account", "Link", "Date"]) # pyright: ignore
         out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
+        out = out.rename(columns={"Date": "Datum"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -269,6 +275,7 @@ def liked_posts_to_df(instagram_zip: str) -> pd.DataFrame:
             ))
         out = pd.DataFrame(datapoints, columns=["Account name", "Value", "Link", "Date"]) # pyright: ignore
         out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
+        out = out.rename(columns={"Account name": "Accountnaam", "Value": "Waarde", "Date": "Datum"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -321,7 +328,7 @@ def extraction(instagram_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTab
                     },
                     "type": "area",
                     "group": {
-                        "column": "Date",
+                        "column": "Datum",
                         "dateFormat": "auto",
                     },
                     "values": [{
@@ -336,7 +343,7 @@ def extraction(instagram_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTab
                     },
                     "type": "bar",
                     "group": {
-                        "column": "Date",
+                        "column": "Datum",
                         "dateFormat": "hour_cycle",
                         "label": "Hour of the day",
                     },
@@ -365,7 +372,7 @@ def extraction(instagram_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTab
                     },
                     "type": "area",
                     "group": {
-                        "column": "Date",
+                        "column": "Datum",
                         "dateFormat": "auto"
                     },
                     "values": [{
@@ -393,7 +400,7 @@ def extraction(instagram_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTab
                         "nl": "Meest gelikete accounts"
                     },
                     "type": "wordcloud",
-                    "textColumn": "Account name",
+                    "textColumn": "Accountnaam",
                     "tokenize": False,
                 }
             ]
