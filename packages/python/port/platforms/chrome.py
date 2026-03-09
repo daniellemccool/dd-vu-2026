@@ -114,6 +114,7 @@ def browser_history_to_df(chrome_zip) -> pd.DataFrame:
 
         out = pd.DataFrame(datapoints, columns=["Title", "Url", "Transition", "Date"])
         out = out.sort_values("Date", ascending=False).head(10_000).reset_index(drop=True)
+        out = out.rename(columns={"Title": "Titel", "Url": "URL", "Transition": "Transitietype", "Date": "Datum"})
     except Exception as e:
         logger.error("Exception caught: %s", e)
 
@@ -132,6 +133,7 @@ def bookmarks_to_df(chrome_zip) -> pd.DataFrame:
         parser = _BookmarkParser()
         parser.feed(html_content)
         out = pd.DataFrame(parser.links, columns=["Bookmark", "Url"])
+        out = out.rename(columns={"Bookmark": "Bladwijzer", "Url": "URL"})
     except Exception as e:
         logger.error("Exception caught: %s", e)
 
@@ -162,6 +164,7 @@ def omnibox_to_df(chrome_zip) -> pd.DataFrame:
 
         out = pd.DataFrame(datapoints, columns=["Title", "Number of visits", "Url"])
         out = out.sort_values(by="Number of visits", ascending=False).reset_index(drop=True)
+        out = out.rename(columns={"Title": "Titel", "Number of visits": "Aantal bezoeken", "Url": "URL"})
     except Exception as e:
         logger.error("Exception caught: %s", e)
 
@@ -185,7 +188,7 @@ def extraction(chrome_zip) -> list:
                 {
                     "title": {"en": "Most visited websites", "nl": "Meest bezochte websites"},
                     "type": "wordcloud",
-                    "textColumn": "Url",
+                    "textColumn": "URL",
                     "tokenize": False,
                 }
             ],
