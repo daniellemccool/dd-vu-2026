@@ -10,7 +10,7 @@ from port.api.file_utils import AsyncFileAdapter
 import port.api.props as props
 
 
-def error_flow(platform: str, tb: str):
+def error_flow(platform: str | None, tb: str):
     """
     Generator that handles a Python exception in the donation flow.
 
@@ -42,13 +42,13 @@ def error_flow(platform: str, tb: str):
         error_data = json.dumps({
             "platform": platform,
             "traceback": tb,
-            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         })
         yield CommandSystemDonate("error-report", error_data)
 
 
 class ScriptWrapper(Generator):
-    def __init__(self, script, platform: str = None):
+    def __init__(self, script, platform: str | None = None):
         self.script = script
         self.platform = platform or "unknown"
         self._error_handler = None
@@ -81,7 +81,7 @@ class ScriptWrapper(Generator):
         else:
             return command.toDict()
 
-    def throw(self, type=None, value=None, traceback=None):
+    def throw(self, _type=None, _value=None, _traceback=None):
         raise StopIteration
 
 
