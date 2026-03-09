@@ -53,6 +53,9 @@ DDP_CATEGORIES = [
             "videos_watched.json",
             "ads_interests.json",
             "account_searches.json",
+            "profile_searches.json",
+            "followers_1.json",
+            "saved_posts.json",
             "following.json",
             "posts_viewed.json",
             "recently_unfollowed_accounts.json",
@@ -68,29 +71,33 @@ DDP_CATEGORIES = [
 
 
 
-def accounts_not_interested_in_to_df(instagram_zip: str) -> pd.DataFrame:
+def followers_to_df(instagram_zip: str) -> pd.DataFrame:
+    """
+    followers_1.json can be a bare top-level list (newer exports) or wrapped
+    under a 'relationships_followers' key (older exports).
+    """
 
-    b = eh.extract_file_from_zip(instagram_zip, "accounts_you're_not_interested_in.json")
-    d = eh.read_json_from_bytes(b)
+    b = eh.extract_file_from_zip(instagram_zip, "followers_1.json")
+    data = eh.read_json_from_bytes(b)
 
     out = pd.DataFrame()
     datapoints = []
 
     try:
-        items = d["impressions_history_recs_hidden_authors"] # pyright: ignore
-        for item in items:
-            data = item.get("string_map_data", {})
-            account_name = data.get("Username", {}).get("value", None),
-            if "Time" in data:
-                timestamp = data.get("Time", {}).get("timestamp", "")
-            else:
-                timestamp = data.get("Tijd", {}).get("timestamp", "")
+        # Newer format: top-level list; older format: dict with relationships_followers key
+        if isinstance(data, dict):
+            items = data.get("relationships_followers", [])
+        else:
+            items = data  # pyright: ignore
 
+        for item in items:
+            d = eh.dict_denester(item)
             datapoints.append((
-                account_name,
-                eh.epoch_to_iso(timestamp)
+                eh.fix_latin1_string(eh.find_item(d, "value")),
+                eh.find_item(d, "href"),
+                eh.epoch_to_iso(eh.find_item(d, "timestamp"))
             ))
-        out = pd.DataFrame(datapoints, columns=["Account name", "Date"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Account", "Link", "Date"]) # pyright: ignore
         out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
 
     except Exception as e:
@@ -99,30 +106,52 @@ def accounts_not_interested_in_to_df(instagram_zip: str) -> pd.DataFrame:
     return out
 
 
-def ads_viewed_to_df(instagram_zip: str) -> pd.DataFrame:
+def profile_searches_to_df(instagram_zip: str) -> pd.DataFrame:
 
-    b = eh.extract_file_from_zip(instagram_zip, "ads_viewed.json")
-    d = eh.read_json_from_bytes(b)
+    b = eh.extract_file_from_zip(instagram_zip, "profile_searches.json")
+    data = eh.read_json_from_bytes(b)
 
     out = pd.DataFrame()
     datapoints = []
 
     try:
-        items = d["impressions_history_ads_seen"] # pyright: ignore
+        items = data["searches_user"]  # pyright: ignore
         for item in items:
-            data = item.get("string_map_data", {})
-            account_name = data.get("Author", {}).get("value", None)
-            if "Time" in data:
-                timestamp = data.get("Time", {}).get("timestamp", "")
-            else:
-                timestamp = data.get("Tijd", {}).get("timestamp", "")
-
+            d = eh.dict_denester(item)
             datapoints.append((
-                account_name,
-                eh.epoch_to_iso(timestamp)
+                eh.epoch_to_iso(eh.find_item(d, "timestamp")),
+                eh.fix_latin1_string(eh.find_item(d, "value")),
             ))
-        out = pd.DataFrame(datapoints, columns=["Author of ad", "Date"]) # pyright: ignore
-        out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
+        out = pd.DataFrame(datapoints, columns=["Timestamp", "Name"]) # pyright: ignore
+        out = out.sort_values(by="Timestamp", key=eh.sort_isotimestamp_empty_timestamp_last)
+
+    except Exception as e:
+        logger.error("Exception caught: %s", e)
+
+    return out
+
+
+def saved_posts_to_df(instagram_zip: str) -> pd.DataFrame:
+
+    b = eh.extract_file_from_zip(instagram_zip, "saved_posts.json")
+    data = eh.read_json_from_bytes(b)
+
+    out = pd.DataFrame()
+    datapoints = []
+
+    try:
+        items = data["saved_saved_media"]  # pyright: ignore
+        for item in items:
+            title = eh.fix_latin1_string(item.get("title", ""))
+            string_list = item.get("string_list_data", [{}])
+            entry = string_list[0] if string_list else {}
+            datapoints.append((
+                title,
+                entry.get("href", ""),
+                eh.epoch_to_iso(entry.get("timestamp", "")),
+            ))
+        out = pd.DataFrame(datapoints, columns=["Title", "Href", "Timestamp"]) # pyright: ignore
+        out = out.sort_values(by="Timestamp", key=eh.sort_isotimestamp_empty_timestamp_last)
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -153,33 +182,6 @@ def posts_viewed_to_df(instagram_zip: str) -> pd.DataFrame:
                 eh.epoch_to_iso(timestamp)
             ))
         out = pd.DataFrame(datapoints, columns=["Author", "Date"]) # pyright: ignore
-        out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
-
-    except Exception as e:
-        logger.error("Exception caught: %s", e)
-
-    return out
-
-
-
-def posts_not_interested_in_to_df(instagram_zip: str) -> pd.DataFrame:
-
-    b = eh.extract_file_from_zip(instagram_zip, "posts_you're_not_interested_in.json")
-    data = eh.read_json_from_bytes(b)
-
-    out = pd.DataFrame()
-    datapoints = []
-
-    try:
-        items = data["impressions_history_posts_not_interested"] # pyright: ignore
-        for item in items:
-            d = eh.dict_denester(item.get("string_list_data"))
-            datapoints.append((
-                eh.fix_latin1_string(eh.find_item(d, "value")),
-                eh.find_item(d, "href"),
-                eh.epoch_to_iso(eh.find_item(d, "timestamp"))
-            ))
-        out = pd.DataFrame(datapoints, columns=["Post", "Link", "Date"]) # pyright: ignore
         out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
 
     except Exception as e:
@@ -220,49 +222,6 @@ def videos_watched_to_df(instagram_zip: str) -> pd.DataFrame:
     return out
 
 
-def post_comments_to_df(instagram_zip: str) -> pd.DataFrame:
-    """
-    You can have 1 to n files of post_comments_<x>.json
-    """
-
-    out = pd.DataFrame()
-    datapoints = []
-    i = 1
-
-    while True:
-        b = eh.extract_file_from_zip(instagram_zip, f"post_comments_{i}.json")
-        d = eh.read_json_from_bytes(b)
-
-        if not d:
-            break
-
-        try:
-            for item in d:
-                data = item.get("string_map_data", {})
-                media_owner = data.get("Media Owner", {}).get("value", "")
-                comment = data.get("Comment", {}).get("value", "")
-                if "Time" in data:
-                    timestamp = data.get("Time", {}).get("timestamp", "")
-                else:
-                    timestamp = data.get("Tijd", {}).get("timestamp", "")
-
-                datapoints.append((
-                    media_owner,
-                    eh.fix_latin1_string(comment),
-                    eh.epoch_to_iso(timestamp)
-                ))
-            i += 1
-
-        except Exception as e:
-            logger.error("Exception caught: %s", e)
-            return pd.DataFrame()
-
-    out = pd.DataFrame(datapoints, columns=["Media Owner", "Comment", "Date"]) # pyright: ignore
-
-    return out
-
-
-
 def following_to_df(instagram_zip: str) -> pd.DataFrame:
 
     b = eh.extract_file_from_zip(instagram_zip, "following.json")
@@ -288,33 +247,6 @@ def following_to_df(instagram_zip: str) -> pd.DataFrame:
 
     return out
 
-
-
-def liked_comments_to_df(instagram_zip: str) -> pd.DataFrame:
-
-    b = eh.extract_file_from_zip(instagram_zip, "liked_comments.json")
-    data = eh.read_json_from_bytes(b)
-
-    out = pd.DataFrame()
-    datapoints = []
-
-    try:
-        items = data["likes_comment_likes"] #pyright: ignore
-        for item in items:
-            d = eh.dict_denester(item)
-            datapoints.append((
-                eh.fix_latin1_string(eh.find_item(d, "title")),
-                eh.fix_latin1_string(eh.find_item(d, "value")),
-                eh.find_items(d, "href"),
-                eh.epoch_to_iso(eh.find_item(d, "timestamp"))
-            ))
-        out = pd.DataFrame(datapoints, columns=["Account name", "Value", "Link", "Date"]) # pyright: ignore
-        out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
-
-    except Exception as e:
-        logger.error("Exception caught: %s", e)
-
-    return out
 
 
 def liked_posts_to_df(instagram_zip: str) -> pd.DataFrame:
@@ -346,6 +278,30 @@ def liked_posts_to_df(instagram_zip: str) -> pd.DataFrame:
 
 def extraction(instagram_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTableViz]:
     tables = [
+        d3i_props.PropsUIPromptConsentFormTableViz(
+            id="instagram_followers",
+            data_frame=followers_to_df(instagram_zip),
+            title=props.Translatable({
+                "en": "Your Instagram followers",
+                "nl": "Je Instagram-volgers"
+            }),
+            description=props.Translatable({
+                "en": "List of accounts that follow you on Instagram.",
+                "nl": "Lijst van accounts die jou op Instagram volgen."
+            }),
+        ),
+        d3i_props.PropsUIPromptConsentFormTableViz(
+            id="instagram_following",
+            data_frame=following_to_df(instagram_zip),
+            title=props.Translatable({
+                "en": "Accounts that you follow on Instagram",
+                "nl": "Accounts die je volgt op Instagram"
+            }),
+            description=props.Translatable({
+                "en": "In this table, you find the accounts that you follow on Instagram.",
+                "nl": "In deze tabel zie je de accounts die je volgt op Instagram."
+            }),
+        ),
         d3i_props.PropsUIPromptConsentFormTableViz(
             id="instagram_posts_viewed",
             data_frame=posts_viewed_to_df(instagram_zip),
@@ -420,100 +376,6 @@ def extraction(instagram_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTab
             ]
         ),
         d3i_props.PropsUIPromptConsentFormTableViz(
-            id="instagram_post_comments",
-            data_frame=post_comments_to_df(instagram_zip),
-            title=props.Translatable({
-                "en": "Comments on Instagram posts",
-                "nl": "Reacties op Instagram-berichten",
-            }),
-            description=props.Translatable({
-                "en": "In this table, you find the comments that you left behind on Instagram posts sorted over time. Below, you find a wordcloud, where the size of the word indicates how frequently that word has been used in these comments.",
-                "nl": "In deze tabel zie je de reacties die je hebt achtergelaten op Instagram-berichten, gesorteerd op tijd. Hieronder zie je een woordwolk waarin de grootte van een woord aangeeft hoe vaak het is gebruikt in deze reacties."
-            }),
-            visualizations=[
-                {
-                    "title": {
-                        "en": "Most common words in comments on posts",
-                        "nl": "Meest gebruikte woorden in reacties op berichten"
-                    },
-                    "type": "wordcloud",
-                    "textColumn": "Comment",
-                    "tokenize": True,
-                }
-            ]
-        ),
-        d3i_props.PropsUIPromptConsentFormTableViz(
-            id="instagram_accounts_not_interested_in",
-            data_frame=accounts_not_interested_in_to_df(instagram_zip),
-            title=props.Translatable({
-                "en": "Instagram accounts not interested in",
-                "nl": "Instagram-accounts waarin je geen interesse hebt"
-            }),
-            description=props.Translatable({
-                "en": "",
-                "nl": ""
-            }),
-        ),
-        d3i_props.PropsUIPromptConsentFormTableViz(
-            id="instagram_ads_viewed",
-            data_frame=ads_viewed_to_df(instagram_zip),
-            title=props.Translatable({
-                "en": "Ads you viewed on Instagram",
-                "nl": "Advertenties die je op Instagram hebt bekeken"
-            }),
-            description=props.Translatable({
-                "en": "In this table, you find the ads that you viewed on Instagram sorted over time.",
-                "nl": "In deze tabel zie je de advertenties die je op Instagram hebt bekeken, gesorteerd op tijd."
-            }),
-        ),
-        d3i_props.PropsUIPromptConsentFormTableViz(
-            id="instagram_posts_not_interested_in",
-            data_frame=posts_not_interested_in_to_df(instagram_zip),
-            title=props.Translatable({
-                "en": "Instagram posts not interested in",
-                "nl": "Instagram-berichten waarin je geen interesse hebt"
-            }),
-            description=props.Translatable({
-                "en": "",
-                "nl": ""
-            }),
-        ),
-        d3i_props.PropsUIPromptConsentFormTableViz(
-            id="instagram_following",
-            data_frame=following_to_df(instagram_zip),
-            title=props.Translatable({
-                "en": "Accounts that you follow on Instagram",
-                "nl": "Accounts die je volgt op Instagram"
-            }),
-            description=props.Translatable({
-                "en": "In this table, you find the accounts that you follow on Instagram.",
-                "nl": "In deze tabel zie je de accounts die je volgt op Instagram."
-            }),
-        ),
-        d3i_props.PropsUIPromptConsentFormTableViz(
-            id="instagram_liked_comments",
-            data_frame=liked_comments_to_df(instagram_zip),
-            title=props.Translatable({
-                "en": "Instagram liked comments",
-                "nl": "Instagram-reacties die je leuk vond"
-            }),
-            description=props.Translatable({
-                "en": "",
-                "nl": ""
-            }),
-            visualizations=[
-                {
-                    "title": {
-                        "en": "Accounts who's comments you liked most",
-                        "nl": "Accounts waarvan je de reacties het vaakst leuk vond"
-                    },
-                    "type": "wordcloud",
-                    "textColumn": "Account name",
-                    "tokenize": False,
-                }
-            ]
-        ),
-        d3i_props.PropsUIPromptConsentFormTableViz(
             id="instagram_liked_posts",
             data_frame=liked_posts_to_df(instagram_zip),
             title=props.Translatable({
@@ -535,7 +397,31 @@ def extraction(instagram_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTab
                     "tokenize": False,
                 }
             ]
-        )
+        ),
+        d3i_props.PropsUIPromptConsentFormTableViz(
+            id="instagram_profile_searches",
+            data_frame=profile_searches_to_df(instagram_zip),
+            title=props.Translatable({
+                "en": "Your Instagram profile searches",
+                "nl": "Je Instagram-profielzoekopdrachten"
+            }),
+            description=props.Translatable({
+                "en": "List of profiles you have searched for on Instagram.",
+                "nl": "Lijst van profielen die je op Instagram hebt gezocht."
+            }),
+        ),
+        d3i_props.PropsUIPromptConsentFormTableViz(
+            id="instagram_saved_posts",
+            data_frame=saved_posts_to_df(instagram_zip),
+            title=props.Translatable({
+                "en": "Your saved posts on Instagram",
+                "nl": "Je opgeslagen berichten op Instagram"
+            }),
+            description=props.Translatable({
+                "en": "List of posts you have saved on Instagram.",
+                "nl": "Lijst van berichten die je hebt opgeslagen op Instagram."
+            }),
+        ),
     ]
 
     return [table for table in tables if not table.data_frame.empty]
