@@ -70,6 +70,7 @@ def watch_history_to_df(zip: str, validation) -> pd.DataFrame:
             ))
 
         out = pd.DataFrame(datapoints, columns=["Title", "URL", "Timestamp"])  # pyright: ignore
+        out = out.rename(columns={"Title": "Titel", "Timestamp": "Datum en tijd"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -99,6 +100,7 @@ def search_history_to_df(zip: str, validation) -> pd.DataFrame:
             ))
 
         out = pd.DataFrame(datapoints, columns=["Title", "URL", "Timestamp", "Ad"])  # pyright: ignore
+        out = out.rename(columns={"Title": "Titel", "Timestamp": "Datum en tijd", "Ad": "Advertentie"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -121,7 +123,7 @@ def subscriptions_to_df(youtube_zip: str, validation) -> pd.DataFrame:
     df = eh.read_csv_from_bytes_to_df(b)
 
     if not df.empty:
-        df.columns = ["Channel Id", "Channel Url", "Channel Title"]  # pyright: ignore
+        df.columns = ["Kanaal-id", "Kanaal-URL", "Kanaalnaam"]  # pyright: ignore
 
     return df
 
@@ -146,7 +148,7 @@ def extraction(zip: str, validation: ValidateInput) -> list[d3i_props.PropsUIPro
                         "nl": "Woorden in titels van bekeken video's",
                     },
                     "type": "wordcloud",
-                    "textColumn": "Title",
+                    "textColumn": "Titel",
                     "tokenize": True,
                 }
             ]
@@ -169,7 +171,7 @@ def extraction(zip: str, validation: ValidateInput) -> list[d3i_props.PropsUIPro
                         "nl": "Woorden in je zoek- en kijkgeschiedenis",
                     },
                     "type": "wordcloud",
-                    "textColumn": "Title",
+                    "textColumn": "Titel",
                     "tokenize": True,
                 }
             ]
