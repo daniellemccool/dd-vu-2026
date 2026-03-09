@@ -48,6 +48,13 @@ node_modules/
 
 # Git worktrees
 .worktrees/
+
+# DDP files and test data — NEVER commit participant data or real DDPs
+*.zip
+*.tar.gz
+packages/python/tests/data/
+packages/python/tests/fixtures/
+received_files/
 release-for-website.sh
 
 _build

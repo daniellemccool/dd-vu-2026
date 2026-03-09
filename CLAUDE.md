@@ -25,6 +25,15 @@ cd packages/data-collector && pnpm build   # TypeScript check
 - **Translatable shape**: `Translatable.toDict()` returns `{"translations": {"nl": ..., "en": ...}}` — test assertions use `["translations"]["nl"]`, not `["text"]["nl"]`
 - **File size limit**: `_MAX_FILE_BYTES = 2 GB` — Pyodide handles up to 2 GB in-browser
 
+## Test Data Policy (CRITICAL)
+
+**Never commit DDP files, received files, or any data derived from real participant data.**
+
+- `.zip` files, `tests/data/`, `tests/fixtures/`, `received_files/` are all gitignored
+- Real DDPs live at `~/data/d3i/test_packages/port-vu/` (outside repo, never committed)
+- Received/donated files live at `~/data/d3i/test_packages/port-vu/received_files/<date>/`
+- Tests must use synthetic/mocked data only — never real participant exports
+
 ## Column Language Policy
 
 All DataFrame column headers shown to participants in the consent UI must be in **Dutch**. YouTube already uses Dutch; LinkedIn, X, Instagram, Chrome, TikTok, Facebook are pending migration.
