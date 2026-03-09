@@ -9,7 +9,7 @@ TIMESTAMP=$(date '+%Y-%m-%d')
 BUILD_NR=${2:-local}
 
 # Add platforms here as they are activated in script.py
-platforms=("LinkedIn" "X")
+platforms=("LinkedIn" "Instagram" "Chrome" "Facebook" "YouTube" "TikTok" "X")
 
 mkdir -p releases
 

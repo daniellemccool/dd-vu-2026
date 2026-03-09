@@ -40,11 +40,11 @@ def process(session_id: str, platform: str | None = None):
 
     all_platforms = [
         ("LinkedIn",  linkedin.LinkedInFlow(session_id)),
-        # ("Instagram", instagram.InstagramFlow(session_id)),
-        # ("Chrome",    chrome.ChromeFlow(session_id)),
-        # ("Facebook",  facebook.FacebookFlow(session_id)),
-        # ("YouTube",   youtube.YouTubeFlow(session_id)),
-        # ("TikTok",    tiktok.TikTokFlow(session_id)),
+        ("Instagram", instagram.InstagramFlow(session_id)),
+        ("Chrome",    chrome.ChromeFlow(session_id)),
+        ("Facebook",  facebook.FacebookFlow(session_id)),
+        ("YouTube",   youtube.YouTubeFlow(session_id)),
+        ("TikTok",    tiktok.TikTokFlow(session_id)),
         ("X",         x.XFlow(session_id)),
     ]
 
