@@ -45,6 +45,9 @@ node_modules/
 
 # Act artifacts
 .artifacts/
+
+# Git worktrees
+.worktrees/
 release-for-website.sh
 
 _build
