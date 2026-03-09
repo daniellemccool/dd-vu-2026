@@ -82,12 +82,31 @@ def ad_engagement_to_df(x_zip: str) -> pd.DataFrame:
 
     try:
         for item in items:
-            d = eh.dict_denester(item)
-            datapoints.append((
-                eh.find_item(d, "tweetText"),
-                eh.find_item(d, "impressionTime"),
-            ))
-        out = pd.DataFrame(datapoints, columns=["Text", "Impression time"]) # pyright: ignore
+            engagements = (
+                item.get("ad", {})
+                    .get("adsUserData", {})
+                    .get("adEngagements", {})
+                    .get("engagements", [])
+            )
+            for engagement in engagements:
+                imp = engagement.get("impressionAttributes", {})
+                tweet_info = imp.get("promotedTweetInfo", {})
+                advertiser = imp.get("advertiserInfo", {})
+                eng_attrs = engagement.get("engagementAttributes", [{}])
+                for eng_attr in eng_attrs:
+                    datapoints.append((
+                        imp.get("impressionTime", ""),
+                        imp.get("displayLocation", ""),
+                        tweet_info.get("tweetText", ""),
+                        advertiser.get("advertiserName", ""),
+                        advertiser.get("screenName", ""),
+                        eng_attr.get("engagementType", ""),
+                        eng_attr.get("engagementTime", ""),
+                    ))
+        out = pd.DataFrame(datapoints, columns=[  # pyright: ignore
+            "Impression time", "Display location", "Tweet text",
+            "Advertiser", "Advertiser handle", "Engagement type", "Engagement time",
+        ])
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -133,9 +152,10 @@ def follower_to_df(x_zip: str) -> pd.DataFrame:
     try:
         for item in ld:
             datapoints.append((
-                item.get("follower", {}).get("userLink", None)
+                item.get("follower", {}).get("accountId", None),
+                item.get("follower", {}).get("userLink", None),
             ))
-        out = pd.DataFrame(datapoints, columns=["Link to user"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Account id", "Link to user"]) # pyright: ignore
     except Exception as e:
         logger.error("Exception was caught: %s", e)
 
@@ -156,9 +176,10 @@ def following_to_df(twitter_zip: str) -> pd.DataFrame:
     try:
         for item in ld:
             datapoints.append((
-                item.get("following", {}).get("userLink", None)
+                item.get("following", {}).get("accountId", None),
+                item.get("following", {}).get("userLink", None),
             ))
-        out = pd.DataFrame(datapoints, columns=["Link to user"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Account id", "Link to user"]) # pyright: ignore
     except Exception as e:
         logger.error("Exception was caught: %s", e)
 
@@ -181,10 +202,10 @@ def like_to_df(twitter_zip: str) -> pd.DataFrame:
         for item in ld:
             datapoints.append((
                 item.get("like", {}).get("tweetId", None),
-                item.get("like", {}).get("fullText", None)
+                item.get("like", {}).get("expandedUrl", None),
+                item.get("like", {}).get("fullText", None),
             ))
-        out = pd.DataFrame(datapoints, columns=["Tweet Id", "Tweet"]) #pyright: ignore
-        out["Tweet Id"] = "https://twitter.com/a/status/" + out["Tweet Id"]
+        out = pd.DataFrame(datapoints, columns=["Tweet Id", "URL", "Tweet"]) #pyright: ignore
     except Exception as e:
         logger.error("Exception was caught: %s", e)
 
@@ -254,9 +275,10 @@ def mute_to_df(twitter_zip: str) -> pd.DataFrame:
     try:
         for item in ld:
             datapoints.append((
-                item.get("muting", {}).get("userLink", "")
+                item.get("muting", {}).get("accountId", None),
+                item.get("muting", {}).get("userLink", None),
             ))
-        out = pd.DataFrame(datapoints, columns=["Muted users"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Account id", "Link to user"]) # pyright: ignore
     except Exception as e:
         logger.error("Exception was caught: %s", e)
 
