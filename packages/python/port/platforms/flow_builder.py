@@ -5,9 +5,12 @@ The flow builder provides an interface to easily maintain the most commonly used
 """
 from abc import abstractmethod
 from typing import Generator
+import io
 import json
 import logging
-import json
+import os
+import zipfile
+from pathlib import Path
 
 import port.api.props as props
 import port.api.d3i_props as d3i_props
@@ -15,6 +18,50 @@ import port.helpers.port_helpers as ph
 import port.helpers.validate as validate
 
 logger = logging.getLogger(__name__)
+
+
+def _build_error_payload(zip_path: "str | io.BinaryIO", platform_name: str) -> dict:
+    """
+    Inspect a zip file and return a machine-readable error payload describing
+    why it was rejected. Safe to call with a file path or a seekable file-like object.
+    """
+    if hasattr(zip_path, "seek"):
+        zip_path.seek(0, 2)
+        size = zip_path.tell()
+        zip_path.seek(0)
+    else:
+        size = os.path.getsize(zip_path)
+
+    names: list[str] = []
+    try:
+        if hasattr(zip_path, "seek"):
+            zip_path.seek(0)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            names = zf.namelist()
+        if hasattr(zip_path, "seek"):
+            zip_path.seek(0)
+    except Exception:
+        pass
+
+    # Top-level entries: first component of each path
+    top_level = sorted({Path(n).parts[0] for n in names if n})
+
+    # Format detection
+    if names and sum(1 for n in names if n.endswith(".html")) / len(names) > 0.5:
+        detected = "html_export"
+    elif any(n.startswith("data_logs/") for n in names):
+        detected = "data_logs_json"
+    else:
+        detected = "unknown"
+
+    return {
+        "status": "file_format_not_supported",
+        "platform": platform_name,
+        "detected_format": detected,
+        "zip_size_bytes": size,
+        "top_level_folders": top_level,
+    }
+
 
 class FlowBuilder:
     def __init__(self, session_id: str | int, platform_name: str):
