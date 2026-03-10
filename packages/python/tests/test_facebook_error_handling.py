@@ -84,3 +84,14 @@ def test_build_error_payload_empty_zip():
     payload = _build_error_payload(buf, "Facebook")
     assert payload["detected_format"] == "unknown"
     assert payload["top_level_folders"] == []
+
+
+from port.platforms.facebook import last_28_days_to_df
+
+
+def test_last_28_days_returns_empty_when_file_missing():
+    """No spurious rows when the expected JSON file is absent from the zip."""
+    # Zip with no matching file
+    buf = _make_zip(["some_other_file.json"])
+    result = last_28_days_to_df(buf)  # type: ignore[arg-type]  # BytesIO accepted at runtime via extract_file_from_zip
+    assert result.empty, f"Expected empty DataFrame, got {len(result)} rows"
