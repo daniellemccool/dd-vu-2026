@@ -9,9 +9,32 @@
 * Removed - This notes any features that have been deleted and removed from the software
 * Security - This acts as an invitation to users who want to upgrade and avoid any software vulnerabilities
 
-## \#6 UNRELEASED
+## \#6 2026-03-10
 
-* ...
+### Added
+* Per-platform release builds: `release.sh` produces separate zips for each platform
+  via `VITE_PLATFORM` environment variable (#80)
+* Interactive received-file validation script (`validate_received.py`) for post-session
+  QA (#80)
+* Data extraction for all 7 platforms: LinkedIn (#87), X (#88), Instagram (#85),
+  Chrome (#84), Facebook (#83), YouTube (#89), TikTok (#86)
+* Eyra logging sync: Python log forwarding to browser console via `LogForwarder`,
+  `WindowLogSource`, `CommandSystemLog`; `logLevel` prop on host component (#98)
+* Async donations support for Eyra Next platform (`VITE_ASYNC_DONATIONS=true`):
+  workflow awaits `DonateSuccess`/`DonateError` reply over MessageChannel;
+  Firefox channel-mismatch fix (32fbb3b)
+* Git pre-commit protection against accidentally committing DDP/participant data (#90)
+
+### Changed
+* Column headers in consent UI are now Dutch throughout, visible to participants
+  (#95, #97)
+* Script architecture: multi-platform with per-platform filtering via `VITE_PLATFORM`
+  (#80)
+
+### Fixed
+* Four `return`-in-`finally` block bugs in `extraction_helpers`, `x`, and `whatsapp`
+  (#96)
+* Zod v4 compatibility for visualization types (#98)
 
 ## \#5 2025-09-10
 

@@ -1,70 +1,54 @@
-# The data donation task
+# Off the beaten track? A holistic and inclusive approach to exploring how people encounter and interpret political information
 
-The data donation task (a fork of [Feldspar](https://github.com/eyra/feldspar)) is front end that guides participants through the data donation steps, used in conjunction with Next.
-Next is a software as a service platform developed by [Eyra](https://eyra.co/) to facilitate scientific research.
+Data donation workflow for the VU Amsterdam 2026 study, led by Tim Groot Kormelink (VU Amsterdam, starting November 2025). Built on the [D3I data-donation-task](https://github.com/d3i-infra/data-donation-task) framework, which runs inside Eyra's Next platform.
 
-## Documentation
+Participants donate data exports from up to 7 platforms. For each platform they upload their data package, review what will be shared, and choose to donate or decline.
 
-Here you can find the [documentation](https://d3i-infra.github.io/data-donation-task/) of this repository and tutorial articles to get you going.
+## Platforms and collected data
 
+| Platform  | Tables |
+|-----------|--------|
+| LinkedIn  | `linkedin_ads_clicked`, `linkedin_comments`, `linked_in_company_follows`, `linkedin_shares`, `linkedin_reactions`, `linkedin_connections`, `linkedin_search_queries` |
+| X         | `x_follower`, `x_following`, `x_block`, `x_like`, `x_tweet`, `x_tweet_headers`, `x_ad_engagement`, `x_personalization`, `x_mute`, `x_user_link_clicks` |
+| Instagram | `instagram_followers`, `instagram_following`, `instagram_posts_viewed`, `instagram_videos_watched`, `instagram_liked_posts`, `instagram_profile_searches`, `instagram_saved_posts` |
+| Chrome    | `chrome_browser_history`, `chrome_bookmarks`, `chrome_omnibox` |
+| Facebook  | `facebook_who_youve_followed`, `facebook_news_your_locations`, `facebook_notifications`, `facebook_reels_usage`, `facebook_last_28`, `facebook_search_history`, `facebook_recently_viewed`, `facebook_recently_visited`, `facebook_profile_update_history`, `facebook_likes_and_reactions`, `facebook_likes_and_reactions_titled`, `facebook_your_group_membership_activity`, `facebook_pages_and_profiles_you_follow`, `facebook_pages_youve_liked`, `facebook_your_posts_and_check_ins`, `facebook_feed_controls`, `facebook_content_sharing_links_you_created`, `facebook_story_reactions` |
+| YouTube   | `youtube_watch_history`, `youtube_search_history`, `youtube_subscriptions` |
+| TikTok    | `tiktok_watch_history`, `tiktok_activity_summary`, `tiktok_settings`, `tiktok_favorite_videos`, `tiktok_follower`, `tiktok_following`, `tiktok_hashtag`, `tiktok_like_list`, `tiktok_searches`, `tiktok_share_history`, `tiktok_comments` |
 
-## Installation of the data donation task
+Tables may be empty for a given participant if their export does not contain that data.
 
-In order to start a local instance of the data donation task go through the following steps:
+## Setup
 
-0. Pre-requisites
+Prerequisites: [Node.js](https://nodejs.org/en), [pnpm](https://pnpm.io/installation), [Python 3.11+](https://www.python.org/), [Poetry](https://python-poetry.org/)
 
-   - Fork or clone this repo
-   - Install [Node.js](https://nodejs.org/en)
-   - Install [pnpm](https://pnpm.io/installation)
-   - Install [Python](https://www.python.org/) (Version 3.11 or higher)
-   - Install [Poetry](https://python-poetry.org/)
+```sh
+pnpm install
+pnpm run start    # builds Python package, starts dev server at http://localhost:3000
+```
 
-1. Install dependencies:
+## Building releases
 
-   ```sh
-   pnpm install
-   ```
+```sh
+bash release.sh
+```
 
-2. Run the project locally with hot reloading (builds Python package and starts the development server):
+Produces one zip per platform in `releases/`, named `dd-vu-2026_<Platform>_<branch>_<date>_<build>.zip`. Each zip is a self-contained build for a single platform.
 
-   ```sh
-   pnpm run start
-   ```
+## Deployment
 
-3. You can now go to the browser: [`http://localhost:3000`](http://localhost:3000).
+This workflow supports two host platforms, configured via `packages/data-collector/.env.local` (copy from `.env.example`):
 
-If the installation went correctly you should be greeted with a mock data donation study. 
-For detailed installation instructions see the [documentation](https://d3i-infra.github.io/data-donation-task/).
+| Variable | Value | Platform |
+|----------|-------|----------|
+| `VITE_ASYNC_DONATIONS` | unset / `false` | D3I self-hosted mono (default) |
+| `VITE_ASYNC_DONATIONS` | `true` | Eyra Next |
 
+**D3I mono (default):** donations are fire-and-forget — the workflow posts data and continues immediately.
 
-## Deployment configuration
-
-The workflow supports two host platforms, selected via an environment variable in `packages/data-collector/.env.local` (copy from `.env.example`):
-
-| Variable | Value | Use with |
-|---|---|---|
-| `VITE_ASYNC_DONATIONS` | unset or `false` | D3I's self-hosted mono (default) |
-| `VITE_ASYNC_DONATIONS` | `true` | Eyra's hosted Next platform |
-
-**D3I mono (default):** donations are fire-and-forget — the workflow posts data and continues immediately. No `.env.local` needed.
-
-**Eyra mono:** as of January 2026, Eyra's platform stores donations via HTTP POST and sends back a `DonateSuccess` or `DonateError` reply over a MessageChannel. Setting `VITE_ASYNC_DONATIONS=true` enables the workflow to await that reply. Python receives the outcome as a structured response (success, HTTP status, optional error message).
+**Eyra Next:** as of January 2026, Eyra's platform stores donations via HTTP POST and sends back a `DonateSuccess` or `DonateError` reply over a MessageChannel. Setting `VITE_ASYNC_DONATIONS=true` enables the workflow to await that reply.
 
 See `packages/data-collector/.env.example` for details.
-
-
-## Contributing
-
-We want to make contributing to this project as easy and transparent as possible, whether it's:
-
-- Reporting a bug
-- Discussing the current state of the code
-- Submitting a fix
-- Proposing new features
-
-If you have any questions, find any bugs, or have any ideas, read how to contribute [here](https://github.com/eyra/port/blob/master/CONTRIBUTING.md).
-
 
 ## Citation
 
