@@ -284,8 +284,7 @@ def recently_viewed_to_df(facebook_zip: str) -> pd.DataFrame:
                             eh.epoch_to_iso(entry.get("timestamp", ""))
                         ))
 
-        out = pd.DataFrame(datapoints, columns=["Watched", "Name", "Link", "Date"]) #pyright: ignore
-        out = out.rename(columns={"Watched": "Bekeken", "Name": "Naam", "Date": "Datum"})
+        out = pd.DataFrame(datapoints, columns=["Categorie", "Naam", "Link", "Datum"]) #pyright: ignore
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -312,8 +311,7 @@ def recently_visited_to_df(facebook_zip: str) -> pd.DataFrame:
                         eh.epoch_to_iso(entry.get("timestamp", ""))
                     ))
 
-        out = pd.DataFrame(datapoints, columns=["Watched", "Name", "Link", "Date"]) #pyright: ignore
-        out = out.rename(columns={"Watched": "Bekeken", "Name": "Naam", "Date": "Datum"})
+        out = pd.DataFrame(datapoints, columns=["Categorie", "Naam", "Link", "Datum"]) #pyright: ignore
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
