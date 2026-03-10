@@ -315,8 +315,7 @@ def extract_file_from_zip(zfile: str, file_to_extract: str) -> io.BytesIO:
     except Exception as e:
         logger.error("Exception was caught:  %s", e)
 
-    finally:
-        return file_to_extract_bytes
+    return file_to_extract_bytes
 
 
 def _json_reader_bytes(json_bytes: bytes, encoding: str) -> Any:
@@ -494,8 +493,7 @@ def read_csv_from_bytes(json_bytes: io.BytesIO) -> list[dict[Any, Any]]:
     except Exception as e:
         logger.error("%s, could not convert csv bytes", e)
 
-    finally:
-        return out
+    return out
 
 
 def read_csv_from_bytes_to_df(json_bytes: io.BytesIO) -> pd.DataFrame:
