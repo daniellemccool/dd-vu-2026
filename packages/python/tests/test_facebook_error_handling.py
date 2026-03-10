@@ -5,7 +5,6 @@ sys.modules['js'] mock required for Pyodide-only import in file_utils.
 """
 import sys
 import io
-import json
 import zipfile
 
 from unittest.mock import MagicMock

@@ -20,25 +20,25 @@ import port.helpers.validate as validate
 logger = logging.getLogger(__name__)
 
 
-def _build_error_payload(zip_path: "str | io.BinaryIO", platform_name: str) -> dict:
+def _build_error_payload(zip_path: "str | io.IOBase", platform_name: str) -> dict:
     """
     Inspect a zip file and return a machine-readable error payload describing
     why it was rejected. Safe to call with a file path or a seekable file-like object.
     """
-    if hasattr(zip_path, "seek"):
+    if isinstance(zip_path, str):
+        size = os.path.getsize(zip_path)
+    else:
         zip_path.seek(0, 2)
         size = zip_path.tell()
         zip_path.seek(0)
-    else:
-        size = os.path.getsize(zip_path)
 
     names: list[str] = []
     try:
-        if hasattr(zip_path, "seek"):
+        if not isinstance(zip_path, str):
             zip_path.seek(0)
         with zipfile.ZipFile(zip_path, "r") as zf:
             names = zf.namelist()
-        if hasattr(zip_path, "seek"):
+        if not isinstance(zip_path, str):
             zip_path.seek(0)
     except Exception:
         pass
