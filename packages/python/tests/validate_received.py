@@ -49,21 +49,21 @@ def rule(): print("-" * 56)
 
 SCHEMAS = {
     "linkedin": {
-        "linkedin_ads_clicked":      {"Ad clicked Date", "Ad Title/Id"},
-        "linkedin_comments":         {"Date", "Link", "Message"},
-        "linked_in_company_follows": {"Organization", "Followed On"},
-        "linkedin_shares":           {"Date", "ShareLink", "ShareCommentary",
-                                      "SharedUrl", "MediaUrl", "Visibility"},
-        "linkedin_reactions":        {"Date", "Type", "Link"},
-        "linkedin_search_queries":   {"Time", "Search Query"},
+        "linkedin_ads_clicked":      {"Advertentiedatum", "Advertentietitel/id"},
+        "linkedin_comments":         {"Datum", "Link", "Bericht"},
+        "linked_in_company_follows": {"Organisatie", "Gevolgd op"},
+        "linkedin_shares":           {"Datum", "Gedeelde link", "Gedeelde tekst",
+                                      "Gedeelde URL", "Media-URL", "Zichtbaarheid"},
+        "linkedin_reactions":        {"Datum", "Type", "Link"},
+        "linkedin_search_queries":   {"Tijd", "Zoekterm"},
     },
     "x": {
-        "x_follower":      {"Link to user"},
-        "x_following":     {"Link to user"},
-        "x_block":         {"Blocked users"},
-        "x_like":          {"Tweet Id", "Tweet"},
-        "x_tweet":         {"Date", "Tweet", "Retweeted"},
-        "x_tweet_headers": {"Tweet id", "User id", "Created at"},
+        "x_follower":      {"Link naar gebruiker"},
+        "x_following":     {"Link naar gebruiker"},
+        "x_block":         {"Geblokkeerde gebruikers"},
+        "x_like":          {"Tweet-id", "Tweet"},
+        "x_tweet":         {"Datum", "Tweet", "Geretweet"},
+        "x_tweet_headers": {"Tweet-id", "Gebruiker-id", "Aangemaakt op"},
     },
 }
 

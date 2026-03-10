@@ -104,8 +104,8 @@ def ad_engagement_to_df(x_zip: str) -> pd.DataFrame:
                         eng_attr.get("engagementTime", ""),
                     ))
         out = pd.DataFrame(datapoints, columns=[  # pyright: ignore
-            "Impression time", "Display location", "Tweet text",
-            "Advertiser", "Advertiser handle", "Engagement type", "Engagement time",
+            "Vertoonstijdstip", "Weergavelocatie", "Tweet-tekst",
+            "Adverteerder", "Adverteerder-account", "Interactietype", "Interactietijd",
         ])
 
     except Exception as e:
@@ -130,7 +130,7 @@ def personalization_to_df(x_zip: str) -> pd.DataFrame:
                 eh.find_item(d, "name"),
                 eh.find_item(d, "isDisabled"),
             ))
-        out = pd.DataFrame(datapoints, columns=["Interest", "is disabled"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Interesse", "Uitgeschakeld"]) # pyright: ignore
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -155,7 +155,7 @@ def follower_to_df(x_zip: str) -> pd.DataFrame:
                 item.get("follower", {}).get("accountId", None),
                 item.get("follower", {}).get("userLink", None),
             ))
-        out = pd.DataFrame(datapoints, columns=["Account id", "Link to user"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Account-id", "Link naar gebruiker"]) # pyright: ignore
     except Exception as e:
         logger.error("Exception was caught: %s", e)
 
@@ -179,7 +179,7 @@ def following_to_df(twitter_zip: str) -> pd.DataFrame:
                 item.get("following", {}).get("accountId", None),
                 item.get("following", {}).get("userLink", None),
             ))
-        out = pd.DataFrame(datapoints, columns=["Account id", "Link to user"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Account-id", "Link naar gebruiker"]) # pyright: ignore
     except Exception as e:
         logger.error("Exception was caught: %s", e)
 
@@ -205,7 +205,7 @@ def like_to_df(twitter_zip: str) -> pd.DataFrame:
                 item.get("like", {}).get("expandedUrl", None),
                 item.get("like", {}).get("fullText", None),
             ))
-        out = pd.DataFrame(datapoints, columns=["Tweet Id", "URL", "Tweet"]) #pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Tweet-id", "URL", "Tweet"]) #pyright: ignore
     except Exception as e:
         logger.error("Exception was caught: %s", e)
 
@@ -230,7 +230,7 @@ def tweets_to_df(twitter_zip: str) -> pd.DataFrame:
                 item.get("tweet", {}).get("full_text", None),
                 str(item.get("tweet", {}).get("retweeted", ""))
             ))
-        out = pd.DataFrame(datapoints, columns=["Date", "Tweet", "Retweeted"]) #pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Datum", "Tweet", "Geretweet"]) #pyright: ignore
     except Exception as e:
         logger.error("Exception was caught: %s", e)
 
@@ -253,7 +253,7 @@ def block_to_df(x_zip: str) -> pd.DataFrame:
             datapoints.append((
                 item.get("blocking", {}).get("userLink", "")
             ))
-        out = pd.DataFrame(datapoints, columns=["Blocked users"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Geblokkeerde gebruikers"]) # pyright: ignore
 
     except Exception as e:
         logger.error("Exception was caught: %s", e)
@@ -278,7 +278,7 @@ def mute_to_df(twitter_zip: str) -> pd.DataFrame:
                 item.get("muting", {}).get("accountId", None),
                 item.get("muting", {}).get("userLink", None),
             ))
-        out = pd.DataFrame(datapoints, columns=["Account id", "Link to user"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Account-id", "Link naar gebruiker"]) # pyright: ignore
     except Exception as e:
         logger.error("Exception was caught: %s", e)
 
@@ -301,7 +301,7 @@ def tweet_headers_to_df(twitter_zip: str) -> pd.DataFrame:
                 eh.find_item(d, "created_at"),
             ))
 
-        out = pd.DataFrame(datapoints, columns=["Tweet id", "User id", "Created at"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Tweet-id", "Gebruiker-id", "Aangemaakt op"]) # pyright: ignore
     except Exception as e:
         logger.error("Exception was caught: %s", e)
 
@@ -324,7 +324,7 @@ def user_link_clicks_to_df(twitter_zip: str) -> pd.DataFrame:
                 eh.find_item(d, "timeStampOfInteraction"),
             ))
 
-        out = pd.DataFrame(datapoints, columns=["Tweet id", "Link", "Datum en tijd"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Tweet-id", "Link", "Datum en tijd"]) # pyright: ignore
     except Exception as e:
         logger.error("Exception was caught: %s", e)
 

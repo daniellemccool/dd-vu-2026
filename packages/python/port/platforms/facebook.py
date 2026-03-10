@@ -54,6 +54,7 @@ def who_youve_followed_to_df(facebook_zip: str) -> pd.DataFrame:
             ))
 
         out = pd.DataFrame(datapoints, columns=["Name", "Timestamp"]) #pyright: ignore
+        out = out.rename(columns={"Name": "Naam", "Timestamp": "Datum en tijd"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -76,6 +77,7 @@ def news_your_locations_to_df(facebook_zip: str) -> pd.DataFrame:
                 item
             )
         out = pd.DataFrame(datapoints, columns=["Location"]) #pyright: ignore
+        out = out.rename(columns={"Location": "Locatie"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -103,6 +105,7 @@ def notifications_to_df(facebook_zip: str) -> pd.DataFrame:
             ))
 
         out = pd.DataFrame(datapoints, columns=["Text", "Link", "Gelezen", "Datum"]) #pyright: ignore
+        out = out.rename(columns={"Text": "Tekst"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -282,6 +285,7 @@ def recently_viewed_to_df(facebook_zip: str) -> pd.DataFrame:
                         ))
 
         out = pd.DataFrame(datapoints, columns=["Watched", "Name", "Link", "Date"]) #pyright: ignore
+        out = out.rename(columns={"Watched": "Bekeken", "Name": "Naam", "Date": "Datum"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -309,7 +313,8 @@ def recently_visited_to_df(facebook_zip: str) -> pd.DataFrame:
                     ))
 
         out = pd.DataFrame(datapoints, columns=["Watched", "Name", "Link", "Date"]) #pyright: ignore
-        
+        out = out.rename(columns={"Watched": "Bekeken", "Name": "Naam", "Date": "Datum"})
+
     except Exception as e:
         logger.error("Exception caught: %s", e)
 
@@ -332,6 +337,7 @@ def profile_update_history_to_df(facebook_zip: str) -> pd.DataFrame:
             ))
 
         out = pd.DataFrame(datapoints, columns=["Title", "Timestamp"]) #pyright: ignore
+        out = out.rename(columns={"Title": "Titel", "Timestamp": "Datum en tijd"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -461,7 +467,8 @@ def your_group_membership_activity_to_df(facebook_zip: str) -> pd.DataFrame:
             ))
 
         out = pd.DataFrame(datapoints, columns=["Title", "Group name", "Timestamp"]) #pyright: ignore
-        
+        out = out.rename(columns={"Title": "Titel", "Group name": "Groepsnaam", "Timestamp": "Datum en tijd"})
+
     except Exception as e:
         logger.error("Exception caught: %s", e)
 
@@ -485,7 +492,8 @@ def pages_and_profiles_you_follow_to_df(facebook_zip: str) -> pd.DataFrame:
             ))
 
         out = pd.DataFrame(datapoints, columns=["Title", "Timestamp"]) #pyright: ignore
-        
+        out = out.rename(columns={"Title": "Titel", "Timestamp": "Datum en tijd"})
+
     except Exception as e:
         logger.error("Exception caught: %s", e)
 
@@ -509,7 +517,8 @@ def pages_youve_liked_to_df(facebook_zip: str) -> pd.DataFrame:
             ))
 
         out = pd.DataFrame(datapoints, columns=["Name", "Url", "Timestamp"]) # pyright: ignore
-        
+        out = out.rename(columns={"Name": "Naam", "Url": "URL", "Timestamp": "Datum en tijd"})
+
     except Exception as e:
         logger.error("Exception caught: %s", e)
 
@@ -599,6 +608,7 @@ def likes_and_reactions_to_df(instagram_zip: str) -> pd.DataFrame:
             return pd.DataFrame()
 
     out = pd.DataFrame(datapoints, columns=["Title", "Reaction", "Timestamp"]) #pyright: ignore
+    out = out.rename(columns={"Title": "Titel", "Reaction": "Reactie", "Timestamp": "Datum en tijd"})
 
     return out
 
@@ -664,7 +674,10 @@ def likes_and_reactions_base_to_df(facebook_zip: str) -> pd.DataFrame:
     except Exception as e:
         logger.error("Exception caught: %s", e)
 
-    return pd.DataFrame(datapoints, columns=["Reaction", "Name", "URL", "Timestamp"]) if datapoints else pd.DataFrame()  # pyright: ignore
+    df = pd.DataFrame(datapoints, columns=["Reaction", "Name", "URL", "Timestamp"]) if datapoints else pd.DataFrame()  # pyright: ignore
+    if not df.empty:
+        df = df.rename(columns={"Reaction": "Reactie", "Name": "Naam", "Timestamp": "Datum en tijd"})
+    return df
 
 
 def controls_to_df(facebook_zip: str) -> pd.DataFrame:
@@ -760,7 +773,8 @@ def your_posts_check_ins_to_df(facebook_zip: str) -> pd.DataFrame:
             ))
 
         out = pd.DataFrame(datapoints, columns=["Title", "Timestamp"]) #pyright: ignore
-        
+        out = out.rename(columns={"Title": "Titel", "Timestamp": "Datum en tijd"})
+
     except Exception as e:
         logger.error("Exception caught: %s", e)
 
