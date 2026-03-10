@@ -85,8 +85,13 @@ class FlowBuilder:
             }),
             
             "retry_header": props.Translatable({
-                "en": "Try again", 
+                "en": "Try again",
                 "nl": "Probeer opnieuw"
+            }),
+
+            "error_report_header": props.Translatable({
+                "en": "Error report",
+                "nl": "Foutrapport"
             }),
 
             "review_data_description": props.Translatable({
@@ -120,7 +125,19 @@ class FlowBuilder:
                 if validation.get_status_code_id() != 0:
                     logger.info(f"Not a valid {self.platform_name} file; No payload; prompt retry_confirmation")
                     retry_prompt = self.generate_retry_prompt()
-                    yield ph.render_page(self.UI_TEXT["retry_header"], retry_prompt)
+                    retry_result = yield ph.render_page(self.UI_TEXT["retry_header"], retry_prompt)
+
+                    # PayloadTrue (try again) → falls through to next loop iteration.
+                    # PayloadFalse (skip) → offer error report donation, then exit.
+                    if retry_result.__type__ == "PayloadFalse":
+                        error_payload = _build_error_payload(file_result.value, self.platform_name)
+                        consent_result = yield ph.render_page(
+                            self.UI_TEXT["error_report_header"],
+                            ph.generate_error_report_prompt(error_payload)
+                        )
+                        if consent_result.__type__ == "PayloadTrue":
+                            yield ph.donate(str(self.session_id), json.dumps(error_payload))
+                        break
             else:
                 logger.info("Skipped at file selection ending flow")
                 break
