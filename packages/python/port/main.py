@@ -1,12 +1,15 @@
+import logging
 import traceback
 import json
 import datetime
+from collections import deque
 from collections.abc import Generator
 
 from port.script import process
 from port.script import process as process_example
 from port.api.commands import CommandSystemExit, CommandUIRender, CommandSystemDonate
 from port.api.file_utils import AsyncFileAdapter
+from port.api.logging import LogForwardingHandler
 import port.api.props as props
 
 
@@ -52,8 +55,23 @@ class ScriptWrapper(Generator):
         self.script = script
         self.platform = platform or "unknown"
         self._error_handler = None
+        self.queue: deque = deque()
+
+    def add_log_handler(self, logger_name: str = "port.script") -> None:
+        """Attach a handler to the named logger that forwards log records as CommandSystemLog commands."""
+        logger = logging.getLogger(logger_name)
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(LogForwardingHandler(self.queue))
 
     def send(self, data):
+        # If log commands are queued, discard incoming response
+        # because it is the PayloadVoid response to a previous log.
+        # (Log commands are enqueued by LogForwardingHandler during script.send().
+        # The JS engine returns PayloadVoid for each CommandSystemLog via
+        # command_router.ts onCommandSystem else-branch.)
+        if self.queue:
+            return self.queue.popleft()
+
         if self._error_handler is not None:
             try:
                 command = self._error_handler.send(data)
@@ -78,8 +96,11 @@ class ScriptWrapper(Generator):
             self._error_handler = error_flow(self.platform, tb)
             command = next(self._error_handler)
             return command.toDict()
-        else:
-            return command.toDict()
+
+        # Append the script command AFTER any log commands already in the queue.
+        # This preserves log-before-command ordering.
+        self.queue.append(command.toDict())
+        return self.queue.popleft()
 
     def throw(self, _type=None, _value=None, _traceback=None):
         raise StopIteration
@@ -87,7 +108,9 @@ class ScriptWrapper(Generator):
 
 def start(sessionId, platform=None):
     script = process(sessionId, platform)
-    return ScriptWrapper(script, platform=platform)
+    wrapper = ScriptWrapper(script, platform=platform)
+    wrapper.add_log_handler()
+    return wrapper
 
 
 def start_example(sessionId):
