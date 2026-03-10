@@ -68,8 +68,7 @@ def bytesio_to_listdict(bytes_to_read: io.BytesIO) -> list[dict[Any, Any]]:
     except Exception as e:
         logger.error("Exception was caught: %s", e)
 
-    finally:
-        return out
+    return out
 
 
 def ad_engagement_to_df(x_zip: str) -> pd.DataFrame:
@@ -484,7 +483,7 @@ def extraction(x_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTableViz]:
 
 
 class XFlow(FlowBuilder):
-    def __init__(self, session_id: int):
+    def __init__(self, session_id: str | int):
         super().__init__(session_id, "X")
         
     def validate_file(self, file):
