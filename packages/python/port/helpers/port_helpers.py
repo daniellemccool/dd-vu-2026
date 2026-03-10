@@ -1,3 +1,5 @@
+import json
+
 import port.api.props as props
 import port.api.d3i_props as d3i_props
 
@@ -18,7 +20,6 @@ def render_page(
         | d3i_props.PropsUIPromptFileInputMultiple
         | d3i_props.PropsUIPromptQuestionnaire
         | props.PropsUIPromptConfirm
-        | d3i_props.PropsUIPromptRetry
     )
 ) -> CommandUIRender:
     """
@@ -45,22 +46,16 @@ def render_page(
     page = props.PropsUIPageDataSubmission("does not matter", header, body)
     return CommandUIRender(page)
 
-def generate_retry_prompt(platform_name: str) -> d3i_props.PropsUIPromptRetry:
+def generate_retry_prompt(platform_name: str) -> props.PropsUIPromptConfirm:
     """
     Generate a bilingual retry prompt for file processing errors.
 
-    This function returns a bilingual (English and Dutch) retry prompt
-    when a file from a specific platform cannot be processed. It informs
-    the user that the file could not be processed and provides the option
-    to try again with a different file.
+    Returns a PropsUIPromptConfirm with two buttons:
+      ok ("Probeer opnieuw") → PayloadTrue  → caller continues the retry loop
+      cancel ("Overslaan")   → PayloadFalse → caller exits the loop
 
     Args:
-        platform_name (str): The name of the platform associated with the file
-            that could not be processed. This name is inserted into the prompt text.
-
-    Returns:
-        d3i_props.PropsUIPromptRetry: A retry prompt object containing
-        the message text and the label for the "Try again" button.
+        platform_name (str): The name of the platform.
     """
     text = props.Translatable({
         "en": f"Unfortunately, we cannot process your {platform_name} file. Continue, if you are sure that you selected the right file. Try again to select a different file.",
@@ -70,7 +65,39 @@ def generate_retry_prompt(platform_name: str) -> d3i_props.PropsUIPromptRetry:
         "en": "Try again",
         "nl": "Probeer opnieuw"
     })
-    return d3i_props.PropsUIPromptRetry(text, ok)
+    cancel = props.Translatable({
+        "en": "Skip",
+        "nl": "Overslaan"
+    })
+    return props.PropsUIPromptConfirm(text, ok, cancel)
+
+
+def generate_error_report_prompt(payload_dict: dict) -> props.PropsUIPromptConfirm:
+    """
+    Generate a consent prompt showing the machine-readable error payload.
+
+    The participant sees exactly what would be donated before deciding.
+
+    Args:
+        payload_dict: The error payload dict from _build_error_payload().
+
+    Returns:
+        PropsUIPromptConfirm with ok=Donate, cancel=Skip.
+    """
+    payload_text = json.dumps(payload_dict, indent=2)
+    text = props.Translatable({
+        "en": payload_text,
+        "nl": payload_text,
+    })
+    ok = props.Translatable({
+        "en": "Donate",
+        "nl": "Doneer"
+    })
+    cancel = props.Translatable({
+        "en": "Skip",
+        "nl": "Sla over"
+    })
+    return props.PropsUIPromptConfirm(text, ok, cancel)
 
 
 def generate_file_prompt(extensions: str, multiple: bool = False) -> props.PropsUIPromptFileInput | d3i_props.PropsUIPromptFileInputMultiple:
