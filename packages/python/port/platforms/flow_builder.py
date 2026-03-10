@@ -17,7 +17,7 @@ import port.helpers.validate as validate
 logger = logging.getLogger(__name__)
 
 class FlowBuilder:
-    def __init__(self, session_id: int, platform_name: str):
+    def __init__(self, session_id: str | int, platform_name: str):
         self.session_id = session_id
         self.platform_name = platform_name
         self.table_list = []

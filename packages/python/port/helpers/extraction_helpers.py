@@ -294,7 +294,7 @@ def extract_file_from_zip(zfile: str, file_to_extract: str) -> io.BytesIO:
 
     try:
         if hasattr(zfile, "seek"):
-            zfile.seek(0)
+            zfile.seek(0)  # type: ignore[union-attr]  # hasattr guards this
         with zipfile.ZipFile(zfile, "r") as zf:
             file_found = False
 

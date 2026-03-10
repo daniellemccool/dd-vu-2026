@@ -230,7 +230,7 @@ def validate_zip(ddp_categories: list[DDPCategory], path_to_zip: str) -> Validat
 
     try:
         if hasattr(path_to_zip, "seek"):
-            path_to_zip.seek(0)
+            path_to_zip.seek(0)  # type: ignore[union-attr]  # hasattr guards this
         paths = []
         with zipfile.ZipFile(path_to_zip, "r") as zf:
             for f in zf.namelist():

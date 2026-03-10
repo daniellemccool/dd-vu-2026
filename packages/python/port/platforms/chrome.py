@@ -220,7 +220,7 @@ def extraction(chrome_zip) -> list:
 
 
 class ChromeFlow(FlowBuilder):
-    def __init__(self, session_id: int):
+    def __init__(self, session_id: str | int):
         super().__init__(session_id, "Chrome")
 
     def validate_file(self, file):

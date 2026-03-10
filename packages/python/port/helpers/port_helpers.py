@@ -11,13 +11,14 @@ from port.api.commands import (
 def render_page(
     header_text: props.Translatable, 
     body: (
-        props.PropsUIPromptRadioInput 
-        | props.PropsUIPromptConsentForm 
+        props.PropsUIPromptRadioInput
+        | props.PropsUIPromptConsentForm
         | d3i_props.PropsUIPromptConsentFormViz
-        | props.PropsUIPromptFileInput 
+        | props.PropsUIPromptFileInput
         | d3i_props.PropsUIPromptFileInputMultiple
         | d3i_props.PropsUIPromptQuestionnaire
-        | props.PropsUIPromptConfirm 
+        | props.PropsUIPromptConfirm
+        | d3i_props.PropsUIPromptRetry
     )
 ) -> CommandUIRender:
     """

@@ -47,7 +47,7 @@ def _load_user_data(tiktok_zip: str) -> dict:
     return d if isinstance(d, dict) else {}
 
 
-def _get(d: dict, *keys: str):
+def _get(d: dict, *keys: str | list[str]):
     """
     Navigate a nested dict, trying each key in order at each level.
     Accepts multiple variant names per level as a tuple or single string.
@@ -509,7 +509,7 @@ def extraction(tiktok_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTableV
 
 
 class TikTokFlow(FlowBuilder):
-    def __init__(self, session_id: int):
+    def __init__(self, session_id: str | int):
         super().__init__(session_id, "TikTok")
 
     def validate_file(self, file):

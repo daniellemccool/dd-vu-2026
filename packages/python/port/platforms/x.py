@@ -483,7 +483,7 @@ def extraction(x_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTableViz]:
 
 
 class XFlow(FlowBuilder):
-    def __init__(self, session_id: int):
+    def __init__(self, session_id: str | int):
         super().__init__(session_id, "X")
         
     def validate_file(self, file):
