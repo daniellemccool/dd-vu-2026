@@ -18,6 +18,8 @@ import port.api.props as props
 import port.api.commands as commands
 import port.helpers.port_helpers as ph
 
+from port.platforms.flow_builder import _build_error_payload
+
 import port.platforms.linkedin as linkedin
 import port.platforms.instagram as instagram
 import port.platforms.chrome as chrome
@@ -95,28 +97,135 @@ def check_file_safety(file_obj):
         )
 
 
-def donation_failed_flow(platform_name: str, session_id: str):
+def donation_failed_flow(
+    platform_name: str,
+    session_id: str,
+    error_text: str = "",
+    file_value=None,
+):
     """
-    Generator: show an error report consent screen after a server-side donation failure.
+    Generator: handle a server-side donation failure.
 
-    Yields a PropsUIPromptConfirm with ok=donate/cancel=close.
-    If the participant consents (PayloadTrue), yields a donate command for the
-    error payload. Either way the generator then returns (caller should `return`).
+    Sequence:
+    1. Auto-donate metadata (no consent) — includes zip diagnostics when available.
+    2. Show error consent screen with the error text and Donate/Skip buttons.
+    3. If Donate: attempt to donate the error report.
+       If that also fails: show a manual fallback screen with the error text.
+    4. Return — caller's for-loop continues to the next platform.
     """
-    error_payload = {
+    # ------------------------------------------------------------------ #
+    # 1. Build and auto-donate metadata without asking for consent         #
+    # ------------------------------------------------------------------ #
+    metadata: dict = {
         "status": "donation_failed",
         "platform": platform_name,
         "session_id": str(session_id),
     }
-    report_result = yield ph.render_page(
-        props.Translatable({
-            "nl": "Verzenden mislukt",
-            "en": "Upload failed",
-        }),
-        ph.generate_error_report_prompt(error_payload),
+    if error_text:
+        metadata["error_text"] = error_text
+
+    if file_value is not None:
+        try:
+            zip_info = _build_error_payload(file_value, platform_name)
+            for key in ("zip_size_bytes", "top_level_folders", "detected_format"):
+                if key in zip_info:
+                    metadata[key] = zip_info[key]
+        except Exception:
+            pass
+
+    yield ph.donate("error-log", json.dumps(metadata))
+
+    # ------------------------------------------------------------------ #
+    # 2. Show consent screen                                               #
+    # ------------------------------------------------------------------ #
+    error_display = error_text or json.dumps(metadata, indent=2)
+
+    header = props.PropsUIHeader(
+        props.Translatable({"nl": "Verzenden mislukt", "en": "Upload failed"})
     )
+    body = [
+        props.PropsUIPromptText(
+            text=props.Translatable({
+                "en": (
+                    "Unfortunately, we encountered an error. "
+                    "You can see the exact error text below. "
+                    "We'd like to ask you to donate this error text so that the researchers "
+                    "can try to understand what went wrong and fix it.\n\n"
+                    "Do you agree to share this error message?"
+                ),
+                "nl": (
+                    "Helaas is er een fout opgetreden. "
+                    "U kunt de exacte foutmelding hieronder bekijken. "
+                    "We vragen u vriendelijk om deze foutmelding te doneren zodat de onderzoekers "
+                    "kunnen begrijpen wat er misgegaan is en het kunnen oplossen.\n\n"
+                    "Gaat u akkoord met het delen van deze foutmelding?"
+                ),
+            })
+        ),
+        props.PropsUIPromptText(
+            text=props.Translatable({"en": error_display, "nl": error_display})
+        ),
+        props.PropsUIPromptText(
+            text=props.Translatable({
+                "en": "Do you want to provide context or remove something before sending? "
+                      "The error text above will be sent as-is.",
+                "nl": "Wilt u context toevoegen of iets verwijderen voor het verzenden? "
+                      "De bovenstaande foutmelding wordt zoals die is verzonden.",
+            })
+        ),
+        props.PropsUIPromptConfirm(
+            text=props.Translatable({"en": "", "nl": ""}),
+            ok=props.Translatable({"en": "Donate", "nl": "Doneer"}),
+            cancel=props.Translatable({"en": "Skip", "nl": "Sla over"}),
+        ),
+    ]
+    page = props.PropsUIPageDataSubmission("upload-failed", header, body)
+    report_result = yield commands.CommandUIRender(page)
+
+    # ------------------------------------------------------------------ #
+    # 3. Handle Donate                                                     #
+    # ------------------------------------------------------------------ #
     if report_result.__type__ == "PayloadTrue":
-        yield ph.donate("error-report", json.dumps(error_payload))
+        error_report = {
+            "status": "error_report",
+            "platform": platform_name,
+            "session_id": str(session_id),
+            "error_text": error_display,
+        }
+        donate2_result = yield ph.donate("error-report", json.dumps(error_report))
+
+        if not handle_donate_result(donate2_result):
+            # Error report donation also failed — show manual fallback screen
+            fallback_header = props.PropsUIHeader(
+                props.Translatable({"nl": "Verzenden mislukt", "en": "Upload failed"})
+            )
+            fallback_body = [
+                props.PropsUIPromptText(
+                    text=props.Translatable({
+                        "en": (
+                            "The upload failed. You can help us by contacting the researcher "
+                            "with the error message that was generated:"
+                        ),
+                        "nl": (
+                            "Het verzenden is mislukt. U kunt ons helpen door contact op te nemen "
+                            "met de onderzoeker met de volgende foutmelding:"
+                        ),
+                    })
+                ),
+                props.PropsUIPromptText(
+                    text=props.Translatable({"en": error_display, "nl": error_display})
+                ),
+                props.PropsUIPromptConfirm(
+                    text=props.Translatable({"en": "", "nl": ""}),
+                    ok=props.Translatable({"en": "Okay", "nl": "Oké"}),
+                    cancel=props.Translatable({"en": "Close", "nl": "Sluiten"}),
+                ),
+            ]
+            fallback_page = props.PropsUIPageDataSubmission(
+                "upload-failed-fallback", fallback_header, fallback_body
+            )
+            yield commands.CommandUIRender(fallback_page)
+    # Skip (PayloadFalse) or done — generator returns; caller continues to next platform
 
 
 def process(session_id: str, platform: str | None = None):
@@ -195,8 +304,16 @@ def process(session_id: str, platform: str | None = None):
                 )
                 if not handle_donate_result(donate_result):
                     logger.error("Donation failed for %s", platform_name)
-                    yield from donation_failed_flow(platform_name, str(session_id))
-                    return
+                    error_text = str(
+                        getattr(getattr(donate_result, "value", None), "error", "") or ""
+                    )
+                    yield from donation_failed_flow(
+                        platform_name,
+                        str(session_id),
+                        error_text=error_text,
+                        file_value=getattr(file_result, "value", None),
+                    )
+                    # No return — the for-loop continues to the next platform
             elif consent_result.__type__ == "PayloadFalse":
                 yield ph.donate(
                     f"{session_id}-{platform_name.lower()}",

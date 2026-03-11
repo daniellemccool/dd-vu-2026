@@ -19,79 +19,222 @@ class _P:
         self.value = value
 
 
-def _drive_flow(gen, *payloads):
-    """Drive generator: next() then send() for each payload.
+class _PayloadResponse:
+    """Stand-in for PayloadResponse from the JS bridge."""
+    __type__ = "PayloadResponse"
+    def __init__(self, success: bool, error: str = "", status: int = 200):
+        self.value = MagicMock(success=success, error=error, status=status)
 
-    Returns command dicts. StopIteration is treated as a normal end.
+
+def _run(gen, *payloads, stop_after=None):
+    """
+    Drive generator: first next(), then send() for each payload.
+    StopIteration is treated as a normal end.
+    Returns list of command dicts yielded.
     """
     cmds = []
-    cmd = next(gen)
-    cmds.append(cmd.toDict())
-    for p in payloads:
-        try:
+    try:
+        cmd = next(gen)
+        cmds.append(cmd.toDict())
+        for i, p in enumerate(payloads):
+            if stop_after is not None and i >= stop_after:
+                break
             cmd = gen.send(p)
             cmds.append(cmd.toDict())
-        except StopIteration:
-            break
+    except StopIteration:
+        pass
     return cmds
 
 
-# ---------------------------------------------------------------------------
-# The upload-failed screen must NOT have two identical buttons
-# ---------------------------------------------------------------------------
+def _body_items(cmd_dict):
+    """Extract list of body item dicts from a CommandUIRender dict."""
+    body = cmd_dict["page"]["body"]
+    return body if isinstance(body, list) else [body]
 
-def test_donation_failed_shows_error_consent_not_two_close_buttons():
-    """Upload failed screen offers error report consent — ok ≠ cancel."""
-    gen = donation_failed_flow("Facebook", "sess42")
-    cmd = next(gen).toDict()
 
-    assert cmd["__type__"] == "CommandUIRender"
-    body = cmd["page"]["body"]
-    confirm = next(
-        (item for item in (body if isinstance(body, list) else [body])
+def _find_confirm(cmd_dict):
+    """Return the first PropsUIPromptConfirm dict in the body, or None."""
+    return next(
+        (item for item in _body_items(cmd_dict)
          if item["__type__"] == "PropsUIPromptConfirm"),
         None,
     )
-    assert confirm is not None, "Expected PropsUIPromptConfirm in body"
-    ok_en = confirm["ok"]["translations"]["en"]
-    cancel_en = confirm["cancel"]["translations"]["en"]
-    assert ok_en != cancel_en, (
-        f"ok and cancel labels must differ; both are {ok_en!r}"
+
+
+# ---------------------------------------------------------------------------
+# Auto-donate metadata (no consent required)
+# ---------------------------------------------------------------------------
+
+def test_first_command_is_auto_donate():
+    """First yield must be a silent metadata donate, not a render."""
+    gen = donation_failed_flow("Facebook", "sess1")
+    cmd = next(gen).toDict()
+    assert cmd["__type__"] == "CommandSystemDonate", (
+        f"Expected auto-donate as first command, got {cmd['__type__']}"
+    )
+    assert cmd["key"] == "error-log"
+
+
+def test_auto_donate_payload_includes_platform_and_session():
+    """Auto-donate payload contains platform and session_id."""
+    gen = donation_failed_flow("LinkedIn", "sess-42")
+    cmd = next(gen).toDict()
+    payload = json.loads(cmd["json_string"])
+    assert payload["platform"] == "LinkedIn"
+    assert payload["session_id"] == "sess-42"
+    assert payload["status"] == "donation_failed"
+
+
+def test_auto_donate_includes_error_text_when_provided():
+    """When an HTTP error string is provided, it appears in the auto-donated metadata."""
+    gen = donation_failed_flow("Facebook", "s1", error_text="HTTP 404")
+    cmd = next(gen).toDict()
+    payload = json.loads(cmd["json_string"])
+    assert "HTTP 404" in payload.get("error_text", ""), (
+        f"Expected 'HTTP 404' in auto-donate payload, got: {payload}"
     )
 
 
-def test_donation_failed_consent_true_donates_error_report():
-    """If participant consents, a donation with status=donation_failed is made."""
-    gen = donation_failed_flow("Facebook", "sess42")
-    cmds = _drive_flow(gen, _P("PayloadTrue"))
+# ---------------------------------------------------------------------------
+# Consent screen shown after auto-donate
+# ---------------------------------------------------------------------------
 
+def test_consent_screen_shown_after_auto_donate():
+    """Second yield is a CommandUIRender with the consent screen."""
+    gen = donation_failed_flow("Facebook", "sess1", error_text="HTTP 404")
+    cmds = _run(gen, None)  # next() → auto-donate; send(None) → consent screen
+    assert len(cmds) == 2
+    assert cmds[1]["__type__"] == "CommandUIRender"
+
+
+def test_consent_screen_buttons_differ():
+    """Consent screen ok and cancel labels must be different."""
+    gen = donation_failed_flow("Facebook", "sess1")
+    cmds = _run(gen, None)
+    confirm = _find_confirm(cmds[1])
+    assert confirm is not None, "No PropsUIPromptConfirm found in consent screen"
+    ok_en = confirm["ok"]["translations"]["en"]
+    cancel_en = confirm["cancel"]["translations"]["en"]
+    assert ok_en != cancel_en, f"ok and cancel must differ; both are {ok_en!r}"
+
+
+def test_consent_screen_has_donate_and_skip_buttons():
+    """Consent screen ok = Donate, cancel = Skip."""
+    gen = donation_failed_flow("Facebook", "sess1")
+    cmds = _run(gen, None)
+    confirm = _find_confirm(cmds[1])
+    assert confirm is not None
+    ok_en = confirm["ok"]["translations"]["en"].lower()
+    cancel_en = confirm["cancel"]["translations"]["en"].lower()
+    assert "donate" in ok_en or "share" in ok_en, f"Expected donate button, got: {ok_en!r}"
+    assert "skip" in cancel_en or "close" in cancel_en, f"Expected skip button, got: {cancel_en!r}"
+
+
+def test_error_text_appears_in_consent_screen_body():
+    """The error text passed in is displayed somewhere in the consent screen body."""
+    gen = donation_failed_flow("Facebook", "sess1", error_text="HTTP 404 — Not Found")
+    cmds = _run(gen, None)
+    page_dict = cmds[1]["page"]
+    body_str = json.dumps(page_dict["body"])
+    assert "HTTP 404" in body_str, (
+        f"Error text not found in consent screen body: {body_str[:400]}"
+    )
+
+
+def test_consent_screen_explanation_text_present():
+    """Consent screen contains explanatory text about the error."""
+    gen = donation_failed_flow("Facebook", "sess1")
+    cmds = _run(gen, None)
+    body_str = json.dumps(cmds[1]["page"]["body"]).lower()
+    assert "error" in body_str or "fout" in body_str, (
+        "Expected explanation text mentioning error"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Donate path
+# ---------------------------------------------------------------------------
+
+def test_donate_consent_yields_error_report_donation():
+    """PayloadTrue on consent screen → tries to donate with key 'error-report'."""
+    gen = donation_failed_flow("Facebook", "sess1", error_text="HTTP 404")
+    cmds = _run(gen, None, _P("PayloadTrue"))
     types = [c["__type__"] for c in cmds]
-    assert "CommandSystemDonate" in types, f"Expected donate command, got: {types}"
-
-    donate_cmd = next(c for c in cmds if c["__type__"] == "CommandSystemDonate")
-    payload = json.loads(donate_cmd["json_string"])
-    assert payload["status"] == "donation_failed"
-    assert payload["platform"] == "Facebook"
+    assert "CommandSystemDonate" in types[1:], (  # after the auto-donate
+        f"Expected error-report donate after consent, got: {types}"
+    )
+    donate_cmd = next(
+        c for c in cmds[1:] if c["__type__"] == "CommandSystemDonate"
+    )
     assert donate_cmd["key"] == "error-report"
 
 
-def test_donation_failed_consent_false_no_donation():
-    """If participant declines, no donation is made and the generator ends."""
-    gen = donation_failed_flow("Facebook", "sess42")
-    cmds = _drive_flow(gen, _P("PayloadFalse"))
+def test_donate_consent_payload_has_error_text():
+    """The error-report donation payload contains the error text."""
+    gen = donation_failed_flow("LinkedIn", "s99", error_text="HTTP 503")
+    cmds = _run(gen, None, _P("PayloadTrue"))
+    donate_cmd = next(c for c in cmds[1:] if c["__type__"] == "CommandSystemDonate")
+    payload = json.loads(donate_cmd["json_string"])
+    assert "HTTP 503" in json.dumps(payload)
 
-    types = [c["__type__"] for c in cmds]
-    assert "CommandSystemDonate" not in types, (
-        f"Should not donate when consent declined, got: {types}"
+
+# ---------------------------------------------------------------------------
+# Fallback screen when error-report donation also fails
+# ---------------------------------------------------------------------------
+
+def test_donate_consent_then_donate_fails_shows_fallback():
+    """If error-report donation also fails, a fallback screen is shown."""
+    gen = donation_failed_flow("Facebook", "sess1", error_text="HTTP 404")
+    cmds = _run(
+        gen,
+        None,                               # auto-donate → consent screen
+        _P("PayloadTrue"),                  # consent screen → error-report donate
+        _PayloadResponse(success=False, error="HTTP 404", status=404),  # donate fails
+    )
+    render_cmds = [c for c in cmds if c["__type__"] == "CommandUIRender"]
+    assert len(render_cmds) >= 2, (
+        f"Expected at least 2 render commands (consent + fallback), got {len(render_cmds)}"
     )
 
 
-def test_donation_failed_payload_includes_session_id():
-    """Error report payload includes the session_id."""
-    gen = donation_failed_flow("LinkedIn", "session-xyz")
-    cmds = _drive_flow(gen, _P("PayloadTrue"))
+def test_fallback_screen_contains_error_text():
+    """Fallback screen body contains the error text."""
+    gen = donation_failed_flow("Facebook", "sess1", error_text="HTTP 404")
+    cmds = _run(
+        gen,
+        None,
+        _P("PayloadTrue"),
+        _PayloadResponse(success=False, error="HTTP 404", status=404),
+    )
+    render_cmds = [c for c in cmds if c["__type__"] == "CommandUIRender"]
+    fallback = render_cmds[-1]
+    body_str = json.dumps(fallback["page"]["body"])
+    assert "HTTP 404" in body_str, f"Fallback body does not contain error text: {body_str[:400]}"
 
-    donate_cmd = next(c for c in cmds if c["__type__"] == "CommandSystemDonate")
-    payload = json.loads(donate_cmd["json_string"])
-    assert payload["session_id"] == "session-xyz"
-    assert payload["platform"] == "LinkedIn"
+
+# ---------------------------------------------------------------------------
+# Skip path
+# ---------------------------------------------------------------------------
+
+def test_skip_consent_no_error_report_donation():
+    """PayloadFalse on consent screen → no error-report donate is made."""
+    gen = donation_failed_flow("Facebook", "sess1")
+    cmds = _run(gen, None, _P("PayloadFalse"))
+    error_report_donates = [
+        c for c in cmds if c["__type__"] == "CommandSystemDonate" and c.get("key") == "error-report"
+    ]
+    assert not error_report_donates, f"Should not donate error-report on skip, got: {cmds}"
+
+
+def test_skip_consent_generator_ends():
+    """After PayloadFalse on consent, generator ends (StopIteration) — caller continues."""
+    gen = donation_failed_flow("Facebook", "sess1")
+    next(gen)            # auto-donate
+    gen.send(None)       # consent screen
+    try:
+        gen.send(_P("PayloadFalse"))
+        # If we get here, the generator yielded something after Skip.
+        # That would be wrong — it should end.
+        assert False, "Generator should have stopped after Skip"
+    except StopIteration:
+        pass  # correct: generator ended
