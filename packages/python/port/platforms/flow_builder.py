@@ -67,7 +67,7 @@ class FlowBuilder:
     def __init__(self, session_id: str | int, platform_name: str):
         self.session_id = session_id
         self.platform_name = platform_name
-        self.table_list = []
+        self.table_list: list[d3i_props.PropsUIPromptConsentFormTableViz] | None = None
         
         self._initialize_ui_text()
         
@@ -142,7 +142,8 @@ class FlowBuilder:
                 logger.info("Skipped at file selection ending flow")
                 break
                 
-        if self.table_list is not None:
+        table_list = self.table_list
+        if table_list is not None:
             logger.info(f"Prompt consent; {self.platform_name}")
             review_data_prompt = self.generate_review_data_prompt()
             result = yield ph.render_page(self.UI_TEXT["review_data_header"], review_data_prompt)
@@ -177,9 +178,11 @@ class FlowBuilder:
         
     def generate_review_data_prompt(self):
         """Generate platform-specific review data prompt"""
+        assert self.table_list is not None
+        table_list = self.table_list
         return ph.generate_review_data_prompt(
             description=self.UI_TEXT["review_data_description"],
-            table_list=self.table_list
+            table_list=table_list
         )
 
 

@@ -58,8 +58,8 @@ def generate_retry_prompt(platform_name: str) -> props.PropsUIPromptConfirm:
         platform_name (str): The name of the platform.
     """
     text = props.Translatable({
-        "en": f"Unfortunately, we cannot process your {platform_name} file. Continue, if you are sure that you selected the right file. Try again to select a different file.",
-        "nl": f"Helaas, kunnen we uw {platform_name} bestand niet verwerken. Weet u zeker dat u het juiste bestand heeft gekozen? Ga dan verder. Probeer opnieuw als u een ander bestand wilt kiezen."
+        "en": f"Unfortunately, we cannot process your {platform_name} file. Try again to select a different file, or skip this step.",
+        "nl": f"Helaas, kunnen we uw {platform_name} bestand niet verwerken. Probeer opnieuw om een ander bestand te kiezen, of sla deze stap over."
     })
     ok = props.Translatable({
         "en": "Try again",
