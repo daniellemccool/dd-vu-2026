@@ -95,6 +95,30 @@ def check_file_safety(file_obj):
         )
 
 
+def donation_failed_flow(platform_name: str, session_id: str):
+    """
+    Generator: show an error report consent screen after a server-side donation failure.
+
+    Yields a PropsUIPromptConfirm with ok=donate/cancel=close.
+    If the participant consents (PayloadTrue), yields a donate command for the
+    error payload. Either way the generator then returns (caller should `return`).
+    """
+    error_payload = {
+        "status": "donation_failed",
+        "platform": platform_name,
+        "session_id": str(session_id),
+    }
+    report_result = yield ph.render_page(
+        props.Translatable({
+            "nl": "Verzenden mislukt",
+            "en": "Upload failed",
+        }),
+        ph.generate_error_report_prompt(error_payload),
+    )
+    if report_result.__type__ == "PayloadTrue":
+        yield ph.donate("error-report", json.dumps(error_payload))
+
+
 def process(session_id: str, platform: str | None = None):
     logger.info("Starting the donation flow for session %s", session_id)
 
@@ -171,22 +195,7 @@ def process(session_id: str, platform: str | None = None):
                 )
                 if not handle_donate_result(donate_result):
                     logger.error("Donation failed for %s", platform_name)
-                    yield ph.render_page(
-                        props.Translatable({
-                            "nl": "Verzenden mislukt",
-                            "en": "Upload failed",
-                        }),
-                        props.PropsUIPromptConfirm(
-                            text=props.Translatable({
-                                "nl": "Uw gegevens konden niet worden opgestuurd. "
-                                      "Neem contact op met de onderzoekers.",
-                                "en": "Your data could not be sent. "
-                                      "Please contact the research team.",
-                            }),
-                            ok=props.Translatable({"nl": "Sluiten", "en": "Close"}),
-                            cancel=props.Translatable({"nl": "Sluiten", "en": "Close"}),
-                        ),
-                    )
+                    yield from donation_failed_flow(platform_name, str(session_id))
                     return
             elif consent_result.__type__ == "PayloadFalse":
                 yield ph.donate(
