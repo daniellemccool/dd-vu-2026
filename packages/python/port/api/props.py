@@ -281,6 +281,33 @@ class PropsUIPromptText:
 
 
 @dataclass
+class PropsUIPromptTextArea:
+    """Editable multiline text area pre-filled with an initial value.
+
+    The current value is reported to the page via onDataSubmissionDataChanged
+    using *id* as the key, so it is captured in the PayloadJSON when the
+    surrounding DataSubmissionPage donates.
+
+    Attributes:
+        id: key used when reporting the value to the page
+        initial_value: text pre-filled in the textarea
+        rows: visible row height (default 8)
+    """
+
+    id: str
+    initial_value: str
+    rows: int = 8
+
+    def toDict(self):
+        return {
+            "__type__": "PropsUIPromptTextArea",
+            "id": self.id,
+            "initialValue": self.initial_value,
+            "rows": self.rows,
+        }
+
+
+@dataclass
 class PropsUIDataSubmissionButtons:
     """Buttons for data submission actions
 
@@ -292,6 +319,7 @@ class PropsUIDataSubmissionButtons:
 
     donate_question: Optional[Translatable] = None
     donate_button: Optional[Translatable] = None
+    cancel_button: Optional[Translatable] = None
     waiting: bool = False
 
     def toDict(self):
@@ -299,6 +327,7 @@ class PropsUIDataSubmissionButtons:
         dict["__type__"] = "PropsUIDataSubmissionButtons"
         dict["donateQuestion"] = self.donate_question and self.donate_question.toDict()
         dict["donateButton"] = self.donate_button and self.donate_button.toDict()
+        dict["cancelButton"] = self.cancel_button and self.cancel_button.toDict()
         dict["waiting"] = self.waiting
         return dict
 

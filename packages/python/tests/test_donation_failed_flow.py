@@ -52,13 +52,18 @@ def _body_items(cmd_dict):
     return body if isinstance(body, list) else [body]
 
 
-def _find_confirm(cmd_dict):
-    """Return the first PropsUIPromptConfirm dict in the body, or None."""
+def _find_submit_buttons(cmd_dict):
+    """Return the first PropsUIDataSubmissionButtons dict in the body, or None."""
     return next(
         (item for item in _body_items(cmd_dict)
-         if item["__type__"] == "PropsUIPromptConfirm"),
+         if item["__type__"] == "PropsUIDataSubmissionButtons"),
         None,
     )
+
+
+def _payload_json(data: dict) -> "_P":
+    """Return a PayloadJSON-like object with a JSON-encoded value."""
+    return _P("PayloadJSON", json.dumps(data))
 
 
 # ---------------------------------------------------------------------------
@@ -108,25 +113,25 @@ def test_consent_screen_shown_after_auto_donate():
 
 
 def test_consent_screen_buttons_differ():
-    """Consent screen ok and cancel labels must be different."""
+    """Consent screen donate and cancel labels must be different."""
     gen = donation_failed_flow("Facebook", "sess1")
     cmds = _run(gen, None)
-    confirm = _find_confirm(cmds[1])
-    assert confirm is not None, "No PropsUIPromptConfirm found in consent screen"
-    ok_en = confirm["ok"]["translations"]["en"]
-    cancel_en = confirm["cancel"]["translations"]["en"]
-    assert ok_en != cancel_en, f"ok and cancel must differ; both are {ok_en!r}"
+    buttons = _find_submit_buttons(cmds[1])
+    assert buttons is not None, "No PropsUIDataSubmissionButtons found in consent screen"
+    donate_en = buttons["donateButton"]["translations"]["en"]
+    cancel_en = buttons["cancelButton"]["translations"]["en"]
+    assert donate_en != cancel_en, f"donate and cancel must differ; both are {donate_en!r}"
 
 
 def test_consent_screen_has_donate_and_skip_buttons():
-    """Consent screen ok = Donate, cancel = Skip."""
+    """Consent screen donate = Donate, cancel = Skip."""
     gen = donation_failed_flow("Facebook", "sess1")
     cmds = _run(gen, None)
-    confirm = _find_confirm(cmds[1])
-    assert confirm is not None
-    ok_en = confirm["ok"]["translations"]["en"].lower()
-    cancel_en = confirm["cancel"]["translations"]["en"].lower()
-    assert "donate" in ok_en or "share" in ok_en, f"Expected donate button, got: {ok_en!r}"
+    buttons = _find_submit_buttons(cmds[1])
+    assert buttons is not None
+    donate_en = buttons["donateButton"]["translations"]["en"].lower()
+    cancel_en = buttons["cancelButton"]["translations"]["en"].lower()
+    assert "donate" in donate_en or "share" in donate_en, f"Expected donate button, got: {donate_en!r}"
     assert "skip" in cancel_en or "close" in cancel_en, f"Expected skip button, got: {cancel_en!r}"
 
 
@@ -156,9 +161,9 @@ def test_consent_screen_explanation_text_present():
 # ---------------------------------------------------------------------------
 
 def test_donate_consent_yields_error_report_donation():
-    """PayloadTrue on consent screen → tries to donate with key 'error-report'."""
+    """PayloadJSON on consent screen → tries to donate with key 'error-report'."""
     gen = donation_failed_flow("Facebook", "sess1", error_text="HTTP 404")
-    cmds = _run(gen, None, _P("PayloadTrue"))
+    cmds = _run(gen, None, _payload_json({"error_text": "HTTP 404"}))
     types = [c["__type__"] for c in cmds]
     assert "CommandSystemDonate" in types[1:], (  # after the auto-donate
         f"Expected error-report donate after consent, got: {types}"
@@ -172,10 +177,21 @@ def test_donate_consent_yields_error_report_donation():
 def test_donate_consent_payload_has_error_text():
     """The error-report donation payload contains the error text."""
     gen = donation_failed_flow("LinkedIn", "s99", error_text="HTTP 503")
-    cmds = _run(gen, None, _P("PayloadTrue"))
+    cmds = _run(gen, None, _payload_json({"error_text": "HTTP 503"}))
     donate_cmd = next(c for c in cmds[1:] if c["__type__"] == "CommandSystemDonate")
     payload = json.loads(donate_cmd["json_string"])
     assert "HTTP 503" in json.dumps(payload)
+
+
+def test_donate_consent_uses_edited_text():
+    """If the participant edits the error text, the edited version is donated."""
+    gen = donation_failed_flow("Facebook", "sess1", error_text="HTTP 404")
+    cmds = _run(gen, None, _payload_json({"error_text": "HTTP 404 — edited by user"}))
+    donate_cmd = next(c for c in cmds[1:] if c["__type__"] == "CommandSystemDonate")
+    payload = json.loads(donate_cmd["json_string"])
+    assert "edited by user" in payload.get("error_text", ""), (
+        f"Donated payload should contain edited text: {payload}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -187,8 +203,8 @@ def test_donate_consent_then_donate_fails_shows_fallback():
     gen = donation_failed_flow("Facebook", "sess1", error_text="HTTP 404")
     cmds = _run(
         gen,
-        None,                               # auto-donate → consent screen
-        _P("PayloadTrue"),                  # consent screen → error-report donate
+        None,                                                    # auto-donate → consent screen
+        _payload_json({"error_text": "HTTP 404"}),              # consent → error-report donate
         _PayloadResponse(success=False, error="HTTP 404", status=404),  # donate fails
     )
     render_cmds = [c for c in cmds if c["__type__"] == "CommandUIRender"]
@@ -203,7 +219,7 @@ def test_fallback_screen_contains_error_text():
     cmds = _run(
         gen,
         None,
-        _P("PayloadTrue"),
+        _payload_json({"error_text": "HTTP 404"}),
         _PayloadResponse(success=False, error="HTTP 404", status=404),
     )
     render_cmds = [c for c in cmds if c["__type__"] == "CommandUIRender"]

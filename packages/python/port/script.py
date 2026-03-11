@@ -148,35 +148,27 @@ def donation_failed_flow(
             text=props.Translatable({
                 "en": (
                     "Unfortunately, we encountered an error. "
-                    "You can see the exact error text below. "
-                    "We'd like to ask you to donate this error text so that the researchers "
-                    "can try to understand what went wrong and fix it.\n\n"
-                    "Do you agree to share this error message?"
+                    "You can see the error message below — you can edit it before sending "
+                    "if you want to add context or remove something.\n\n"
+                    "Do you agree to share this error message with the researchers?"
                 ),
                 "nl": (
                     "Helaas is er een fout opgetreden. "
-                    "U kunt de exacte foutmelding hieronder bekijken. "
-                    "We vragen u vriendelijk om deze foutmelding te doneren zodat de onderzoekers "
-                    "kunnen begrijpen wat er misgegaan is en het kunnen oplossen.\n\n"
-                    "Gaat u akkoord met het delen van deze foutmelding?"
+                    "U kunt de foutmelding hieronder bekijken — u kunt deze bewerken voordat u "
+                    "verstuurt als u context wilt toevoegen of iets wilt verwijderen.\n\n"
+                    "Gaat u akkoord met het delen van deze foutmelding met de onderzoekers?"
                 ),
             })
         ),
-        props.PropsUIPromptText(
-            text=props.Translatable({"en": error_display, "nl": error_display})
+        props.PropsUIPromptTextArea(
+            id="error_text",
+            initial_value=error_display,
+            rows=10,
         ),
-        props.PropsUIPromptText(
-            text=props.Translatable({
-                "en": "Do you want to provide context or remove something before sending? "
-                      "The error text above will be sent as-is.",
-                "nl": "Wilt u context toevoegen of iets verwijderen voor het verzenden? "
-                      "De bovenstaande foutmelding wordt zoals die is verzonden.",
-            })
-        ),
-        props.PropsUIPromptConfirm(
-            text=props.Translatable({"en": "", "nl": ""}),
-            ok=props.Translatable({"en": "Donate", "nl": "Doneer"}),
-            cancel=props.Translatable({"en": "Skip", "nl": "Sla over"}),
+        props.PropsUIDataSubmissionButtons(
+            donate_question=props.Translatable({"en": "", "nl": ""}),
+            donate_button=props.Translatable({"en": "Donate", "nl": "Doneer"}),
+            cancel_button=props.Translatable({"en": "Skip", "nl": "Sla over"}),
         ),
     ]
     page = props.PropsUIPageDataSubmission("upload-failed", header, body)
@@ -185,12 +177,16 @@ def donation_failed_flow(
     # ------------------------------------------------------------------ #
     # 3. Handle Donate                                                     #
     # ------------------------------------------------------------------ #
-    if report_result.__type__ == "PayloadTrue":
+    # PayloadJSON → participant clicked Donate; payload contains edited error_text
+    # PayloadFalse → participant clicked Skip
+    if report_result.__type__ == "PayloadJSON":
+        submitted = json.loads(report_result.value) if isinstance(report_result.value, str) else {}
+        donated_text = submitted.get("error_text", error_display)
         error_report = {
             "status": "error_report",
             "platform": platform_name,
             "session_id": str(session_id),
-            "error_text": error_display,
+            "error_text": donated_text,
         }
         donate2_result = yield ph.donate("error-report", json.dumps(error_report))
 
@@ -213,7 +209,7 @@ def donation_failed_flow(
                     })
                 ),
                 props.PropsUIPromptText(
-                    text=props.Translatable({"en": error_display, "nl": error_display})
+                    text=props.Translatable({"en": donated_text, "nl": donated_text})
                 ),
                 props.PropsUIPromptConfirm(
                     text=props.Translatable({"en": "", "nl": ""}),

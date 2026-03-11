@@ -16,7 +16,8 @@ import {
   PropsUIDataSubmissionButtons,
   isPropsUIDataSubmissionButtons,
   PropsUIPromptText,
-  isPropsUIPromptText
+  isPropsUIPromptText,
+  isPropsUIPromptTextArea
 } from '../../../../types/prompts'
 import { Translatable, PropsUITable } from '../../../../types/elements'
 import TextBundle from '../../../../text_bundle'
@@ -28,6 +29,7 @@ import { RadioInput } from './radio_input'
 import { ConsentTable } from './consent_table'
 import { DonateButtons } from './donate_buttons'
 import { TextBlock } from './text_block'
+import { TextArea } from './text_area'
 
 export interface PromptContext extends ReactFactoryContext {
   onDataSubmissionDataChanged: (key: string, value: any) => void
@@ -141,12 +143,13 @@ export class TableFactory implements PromptFactory {
 export class DonateButtonsFactory implements PromptFactory {
   create(body: unknown, context: PromptContext): JSX.Element | null {
     if (isPropsUIDataSubmissionButtons(body)) {
-      const { donateQuestion, donateButton, ...rest } = body;
+      const { donateQuestion, donateButton, cancelButton, ...rest } = body;
       const props = {
         ...rest,
         ...context,
         donateQuestion,
         donateButton,
+        cancelButton,
       };
       return React.createElement(DonateButtons, props);
     }
@@ -163,6 +166,15 @@ export class TextBlockFactory implements PromptFactory {
   }
 }
 
+export class TextAreaFactory implements PromptFactory {
+  create(body: unknown, context: PromptContext): JSX.Element | null {
+    if (isPropsUIPromptTextArea(body)) {
+      return React.createElement(TextArea, { ...body, ...context });
+    }
+    return null
+  }
+}
+
 export const createPromptFactoriesWithDefaults = (factories: PromptFactory[]=[]): PromptFactory[] => {
     return [
         ...factories,
@@ -172,6 +184,7 @@ export const createPromptFactoriesWithDefaults = (factories: PromptFactory[]=[])
         new RadioInputFactory(),
         new TableFactory(),
         new DonateButtonsFactory(),
-        new TextBlockFactory()
+        new TextBlockFactory(),
+        new TextAreaFactory()
     ];
 }
