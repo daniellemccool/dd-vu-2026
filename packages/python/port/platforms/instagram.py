@@ -7,7 +7,6 @@ Assumptions:
 It handles DDPs in the english language with filetype JSON.
 """
 import logging
-import json
 import re
 from typing import Any
 import zipfile
@@ -88,11 +87,7 @@ def _zip_member_names(instagram_zip: str) -> list[str]:
 
 
 def _read_json_member(instagram_zip: str, member_name: str) -> dict[str, Any] | list[Any]:
-    if hasattr(instagram_zip, "seek"):
-        instagram_zip.seek(0)  # type: ignore[union-attr]
-
-    with zipfile.ZipFile(instagram_zip, "r") as zf:
-        return json.loads(zf.read(member_name).decode("utf-8"))
+    return eh.read_json_from_bytes(eh.extract_file_from_zip(instagram_zip, member_name))
 
 
 def _read_json_members_matching(instagram_zip: str, pattern: str) -> list[dict[str, Any] | list[Any]]:

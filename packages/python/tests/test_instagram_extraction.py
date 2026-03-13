@@ -179,3 +179,26 @@ def test_story_likes_list_format_does_not_crash():
     assert isinstance(df, pd.DataFrame)
     assert not df.empty
     assert df["Account"].iloc[0] == "storyauthor"
+
+
+def test_post_comments_reads_multiple_numbered_files():
+    """post_comments_to_df merges post_comments.json and post_comments_1.json.
+    # Baseline test for multi-file merge — also exercises _read_json_member
+    """
+    item = {
+        "string_map_data": {
+            "Comment": {"value": "Nice!", "href": ""},
+            "Media Owner": {"value": "owner1", "href": ""},
+            "Time": {"timestamp": 1700000000},
+        },
+    }
+    data1 = [item]
+    data2 = {"comments_media_comments": [item]}
+    z = make_zip({
+        "post_comments_1.json": data1,
+        "post_comments.json": data2,
+    })
+    df = post_comments_to_df(z)
+    assert len(df) == 2
+    assert "Reactie" in df.columns
+    assert "Media-eigenaar" in df.columns
