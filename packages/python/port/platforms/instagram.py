@@ -429,17 +429,27 @@ def liked_comments_to_df(instagram_zip: str) -> pd.DataFrame:
     datapoints = []
 
     try:
-        items = data["likes_comment_likes"]  # pyright: ignore
-        for item in items:
-            entry = item.get("string_list_data", [{}])[0]
-            datapoints.append((
-                eh.fix_latin1_string(item.get("title", "")),
-                eh.fix_latin1_string(entry.get("value", "")),
-                entry.get("href", ""),
-                eh.epoch_to_iso(entry.get("timestamp", "")),
-            ))
+        if isinstance(data, dict):
+            items = data["likes_comment_likes"]  # pyright: ignore
+            for item in items:
+                entry = item.get("string_list_data", [{}])[0]
+                datapoints.append((
+                    eh.fix_latin1_string(item.get("title", "")),
+                    eh.fix_latin1_string(entry.get("value", "")),
+                    entry.get("href", ""),
+                    eh.epoch_to_iso(entry.get("timestamp", "")),
+                ))
+        else:
+            for item in data:  # pyright: ignore
+                owner_name, owner_username, url = _extract_owner_details(item.get("label_values", []))
+                datapoints.append((
+                    owner_username or owner_name,
+                    "",  # comment text not available in label_values format
+                    url,
+                    eh.epoch_to_iso(item.get("timestamp", "")),
+                ))
 
-        out = pd.DataFrame(datapoints, columns=["Account name", "Value", "URL", "Date"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Account name", "Value", "URL", "Date"])  # pyright: ignore
         out = _sort_and_rename(out, "Date", {"Account name": "Accountnaam", "Value": "Waarde", "Date": "Datum en tijd"})
 
     except Exception as e:
