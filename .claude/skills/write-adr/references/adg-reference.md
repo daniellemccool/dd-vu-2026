@@ -55,6 +55,24 @@ adg assigns IDs automatically starting at 0001. IDs are 4-digit zero-padded inte
 Pass IDs as the numeric string: `--id 0001` or `--id 1` (both work).
 File names follow: `AD<NNNN>-<title-with-dashes>.md`
 
+## Status vocabulary: adg vs MADR
+
+adg and MADR use different words at each lifecycle stage:
+
+| adg status | MADR equivalent | How to get there |
+|---|---|---|
+| `open` | `proposed` | `adg add` |
+| `decided` | `accepted` | `adg decide` |
+
+`adg set-config --template MADR` maps **section headers** only (Context and Problem Statement, Decision Drivers, etc.) — it does not change adg's internal status vocabulary. There are no `adg propose` or `adg accept` commands.
+
+`create_adr.py` handles both translations automatically:
+- after `adg add`: patches `status: open` → `status: proposed`
+- after `adg decide`: patches `status: decided` → `status: accepted`
+- both patch steps call `adg rebuild` to sync the index
+
+If advancing status manually, edit the frontmatter directly and run `adg rebuild --model <path>`.
+
 ## Notes
 
 - `adg decide --option` accepts either the exact option title string or a 1-based integer index.

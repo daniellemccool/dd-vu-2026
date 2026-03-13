@@ -24,7 +24,12 @@ import json
 import re
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
+
+
+def _today() -> str:
+    return date.today().isoformat()
 
 
 def run(cmd: list[str], check: bool = True) -> str:
@@ -68,6 +73,18 @@ def main() -> None:
         sys.exit(1)
     decision_id = m.group(1)
 
+    # 1b. Advance initial status from adg's "open" to MADR's "proposed".
+    # adg add writes status: open; MADR uses "proposed" for the initial state.
+    model_path = Path(model)
+    id_padded = decision_id.zfill(4)
+    stub_matches = list(model_path.glob(f"AD{id_padded}-*.md"))
+    if stub_matches:
+        stub_file = stub_matches[0]
+        stub_content = stub_file.read_text()
+        stub_content = stub_content.replace("status: open", "status: proposed", 1)
+        stub_file.write_text(stub_content)
+        run(["adg", "rebuild", "--model", model])
+
     # 2. Set context and problem statement
     run(["adg", "edit", "--model", model, "--id", decision_id,
          "--question", spec["question"]])
@@ -80,6 +97,21 @@ def main() -> None:
     run(["adg", "decide", "--model", model, "--id", decision_id,
          "--option", str(spec["decision"]),
          "--rationale", spec["rationale"]])
+
+    # 4b. Advance status from adg's "decided" to MADR's "accepted".
+    # adg decide writes status: decided (adg's own vocabulary). MADR uses "accepted"
+    # for the same terminal state. The --template MADR flag maps section headers only,
+    # not status words, so we patch the frontmatter directly.
+    model_path = Path(model)
+    id_padded = decision_id.zfill(4)
+    matches = list(model_path.glob(f"AD{id_padded}-*.md"))
+    if matches:
+        adr_file = matches[0]
+        content = adr_file.read_text()
+        content = content.replace("status: decided", "status: accepted", 1)
+        content = content.replace("date: \"\"\n", f"date: {_today()}\n", 1)
+        adr_file.write_text(content)
+        run(["adg", "rebuild", "--model", model])
 
     # 5. Apply tags (optional)
     for tag in spec.get("tags", []):
