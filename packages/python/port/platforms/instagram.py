@@ -146,7 +146,6 @@ def _extract_owner_details(label_values: list[dict[str, Any]]) -> tuple[str, str
     return owner_name, owner_username, url
 
 
-
 def followers_to_df(instagram_zip: str) -> pd.DataFrame:
     """
     followers_1.json can be a bare top-level list (newer exports) or wrapped
@@ -353,6 +352,9 @@ def liked_posts_to_df(instagram_zip: str) -> pd.DataFrame:
     datapoints = []
 
     try:
+        # Note: "Value" (→ "Waarde") means different things per format:
+        # dict format: string_list_data[0]["value"] — URL anchor text or caption
+        # list format: owner_name from label_values — account display name
         if isinstance(data, dict):
             items = data["likes_media_likes"] #pyright: ignore
             for item in items:
@@ -467,15 +469,13 @@ def post_comments_to_df(instagram_zip: str) -> pd.DataFrame:
                 comment = _first_present(string_map_data, ["Comment", "Opmerking"])
                 owner = _first_present(string_map_data, ["Media Owner", "Media-eigenaar"])
                 time = _first_present(string_map_data, ["Time", "Tijd"])
-                media_entry = item.get("media_list_data", [{}])[0]
                 datapoints.append((
                     eh.fix_latin1_string(str(comment.get("value", ""))),
                     eh.fix_latin1_string(str(owner.get("value", ""))),
-                    media_entry.get("uri", ""),
                     eh.epoch_to_iso(time.get("timestamp", "")),
                 ))
 
-        out = pd.DataFrame(datapoints, columns=["Comment", "Media owner", "URL", "Date"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Comment", "Media owner", "Date"]) # pyright: ignore
         out = _sort_and_rename(out, "Date", {"Comment": "Reactie", "Media owner": "Media-eigenaar", "Date": "Datum en tijd"})
 
     except Exception as e:

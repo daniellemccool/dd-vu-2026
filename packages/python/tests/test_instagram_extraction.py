@@ -202,3 +202,18 @@ def test_post_comments_reads_multiple_numbered_files():
     assert len(df) == 2
     assert "Reactie" in df.columns
     assert "Media-eigenaar" in df.columns
+
+
+def test_post_comments_has_no_url_column():
+    """post_comments output must not expose a raw media URI as 'URL'."""
+    item = {
+        "string_map_data": {
+            "Comment": {"value": "Nice!", "href": ""},
+            "Media Owner": {"value": "owner1", "href": ""},
+            "Time": {"timestamp": 1700000000},
+        },
+        "media_list_data": [{"uri": "media/posts/202301/photo.jpg"}],
+    }
+    df = post_comments_to_df(make_zip({"post_comments.json": {"comments_media_comments": [item]}}))
+    assert not df.empty
+    assert set(df.columns) == {"Reactie", "Media-eigenaar", "Datum en tijd"}
