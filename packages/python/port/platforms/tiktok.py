@@ -10,7 +10,6 @@ also changed; both old and new names are tried when navigating the JSON.
 """
 
 import logging
-import io
 
 import pandas as pd
 
@@ -35,16 +34,20 @@ DDP_CATEGORIES = [
         language=Language.EN,
         known_files=[
             "user_data.json",
+            "user_data_tiktok.json",
         ],
     ),
 ]
 
 
 def _load_user_data(tiktok_zip: str) -> dict:
-    """Load user_data.json from the TikTok DDP zip."""
-    b = eh.extract_file_from_zip(tiktok_zip, "user_data.json")
-    d = eh.read_json_from_bytes(b)
-    return d if isinstance(d, dict) else {}
+    """Load the TikTok export root JSON from the DDP zip."""
+    for filename in ("user_data_tiktok.json", "user_data.json"):
+        b = eh.extract_file_from_zip(tiktok_zip, filename)
+        d = eh.read_json_from_bytes(b)
+        if isinstance(d, dict) and d:
+            return d
+    return {}
 
 
 def _get(d: dict, *keys: str | list[str]):
@@ -67,6 +70,26 @@ def _get(d: dict, *keys: str | list[str]):
         else:
             node = node.get(key)
     return node
+
+
+def _get_first(d: dict, *paths: tuple[str | list[str], ...]):
+    """Return the first non-None result across multiple candidate paths."""
+    for path in paths:
+        node = _get(d, *path)
+        if node is not None:
+            return node
+    return None
+
+
+def _item_get(item: dict, *keys: str):
+    """Read the first present key from a record, handling case variants."""
+    for key in keys:
+        if key in item:
+            return item.get(key)
+        lower = key.lower()
+        if lower in item:
+            return item.get(lower)
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -94,6 +117,9 @@ def activity_summary_to_df(data: dict) -> pd.DataFrame:
             "videoCount": "Videos watched since registration",
             "commentVideoCount": "Videos commented on since registration",
             "sharedVideoCount": "Videos shared since registration",
+            "videosWatchedToTheEndSinceAccountRegistration": "Videos watched to the end since registration",
+            "videosCommentedOnSinceAccountRegistration": "Videos commented on since registration",
+            "videosSharedSinceAccountRegistration": "Videos shared since registration",
         }
         rows = [
             (label, summary.get(key, ""))
@@ -114,19 +140,28 @@ def settings_to_df(data: dict) -> pd.DataFrame:
     """
     out = pd.DataFrame()
     try:
-        settings_map = _get(data, "App Settings", "Settings", "SettingsMap")
+        settings_map = _get(
+            data,
+            ["App Settings", "Profile And Settings"],
+            "Settings",
+            "SettingsMap",
+        )
         if not isinstance(settings_map, dict):
             return out
 
-        field_map = {
-            "Following Feed Filter Keywords": "Keyword filter for videos in the following feed",
-            "For You Feed Filter Keywords": "Keyword filters for videos in For You feed",
-        }
-        rows = [
-            (label, settings_map.get(key, ""))
-            for key, label in field_map.items()
-            if key in settings_map
-        ]
+        rows = []
+        content_preferences = settings_map.get("Content Preferences", {})
+        if isinstance(content_preferences, dict):
+            field_map = {
+                "Keyword filters for videos in Following feed": "Keyword filter for videos in the following feed",
+                "Keyword filters for videos in For You feed": "Keyword filters for videos in For You feed",
+            }
+            rows.extend(
+                (label, ", ".join(content_preferences.get(key, [])))
+                for key, label in field_map.items()
+                if key in content_preferences
+            )
+
         out = pd.DataFrame(rows, columns=["Setting", "Keywords"])  # pyright: ignore
         out = out.rename(columns={"Setting": "Instelling", "Keywords": "Trefwoorden"})
     except Exception as e:
@@ -141,15 +176,14 @@ def favorite_videos_to_df(data: dict) -> pd.DataFrame:
     """
     out = pd.DataFrame()
     try:
-        items = _get(
+        items = _get_first(
             data,
-            ["Activity", "Your Activity"],
-            "Favorite Videos",
-            "FavoriteVideoList",
+            (["Activity", "Your Activity"], "Favorite Videos", "FavoriteVideoList"),
+            ("Likes and Favorites", "Favorite Videos", "FavoriteVideoList"),
         )
         if not isinstance(items, list):
             return out
-        rows = [(item.get("Date", ""), item.get("Link", "")) for item in items]
+        rows = [(_item_get(item, "Date"), _item_get(item, "Link")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "Link"])  # pyright: ignore
         out = out.rename(columns={"Date": "Datum"})
     except Exception as e:
@@ -164,15 +198,14 @@ def follower_to_df(data: dict) -> pd.DataFrame:
     """
     out = pd.DataFrame()
     try:
-        items = _get(
+        items = _get_first(
             data,
-            ["Activity", "Your Activity"],
-            "Follower List",
-            "FansList",
+            (["Activity", "Your Activity"], "Follower List", "FansList"),
+            ("Profile And Settings", "Follower", "FansList"),
         )
         if not isinstance(items, list):
             return out
-        rows = [(item.get("Date", ""), item.get("UserName", "")) for item in items]
+        rows = [(_item_get(item, "Date"), _item_get(item, "UserName")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "UserName"])  # pyright: ignore
         out = out.rename(columns={"Date": "Datum", "UserName": "Gebruikersnaam"})
     except Exception as e:
@@ -187,15 +220,14 @@ def following_to_df(data: dict) -> pd.DataFrame:
     """
     out = pd.DataFrame()
     try:
-        items = _get(
+        items = _get_first(
             data,
-            ["Activity", "Your Activity"],
-            ["Following List", "Following"],
-            "Following",
+            (["Activity", "Your Activity"], ["Following List", "Following"], "Following"),
+            ("Profile And Settings", "Following", "Following"),
         )
         if not isinstance(items, list):
             return out
-        rows = [(item.get("Date", ""), item.get("UserName", "")) for item in items]
+        rows = [(_item_get(item, "Date"), _item_get(item, "UserName")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "UserName"])  # pyright: ignore
         out = out.rename(columns={"Date": "Datum", "UserName": "Gebruikersnaam"})
     except Exception as e:
@@ -219,7 +251,7 @@ def hashtag_to_df(data: dict) -> pd.DataFrame:
         if not isinstance(items, list):
             return out
         rows = [
-            (item.get("HashtagName", ""), item.get("HashtagLink", ""))
+            (_item_get(item, "HashtagName"), _item_get(item, "HashtagLink"))
             for item in items
         ]
         out = pd.DataFrame(rows, columns=["HashtagName", "HashtagLink"])  # pyright: ignore
@@ -236,15 +268,14 @@ def like_list_to_df(data: dict) -> pd.DataFrame:
     """
     out = pd.DataFrame()
     try:
-        items = _get(
+        items = _get_first(
             data,
-            ["Activity", "Your Activity"],
-            "Like List",
-            "ItemFavoriteList",
+            (["Activity", "Your Activity"], "Like List", "ItemFavoriteList"),
+            ("Likes and Favorites", "Like List", "ItemFavoriteList"),
         )
         if not isinstance(items, list):
             return out
-        rows = [(item.get("Date", ""), item.get("Link", "")) for item in items]
+        rows = [(_item_get(item, "Date"), _item_get(item, "Link")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "Link"])  # pyright: ignore
         out = out.rename(columns={"Date": "Datum"})
     except Exception as e:
@@ -267,7 +298,7 @@ def searches_to_df(data: dict) -> pd.DataFrame:
         )
         if not isinstance(items, list):
             return out
-        rows = [(item.get("Date", ""), item.get("SearchTerm", "")) for item in items]
+        rows = [(_item_get(item, "Date"), _item_get(item, "SearchTerm")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "SearchTerm"])  # pyright: ignore
         out = out.rename(columns={"Date": "Datum", "SearchTerm": "Zoekterm"})
     except Exception as e:
@@ -292,10 +323,10 @@ def share_history_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [
             (
-                item.get("Date", ""),
-                item.get("SharedContent", ""),
-                item.get("Link", ""),
-                item.get("Method", ""),
+                _item_get(item, "Date"),
+                _item_get(item, "SharedContent"),
+                _item_get(item, "Link"),
+                _item_get(item, "Method"),
             )
             for item in items
         ]
@@ -325,7 +356,7 @@ def watch_history_to_df(data: dict) -> pd.DataFrame:
         )
         if not isinstance(items, list):
             return out
-        rows = [(item.get("Date", ""), item.get("Link", "")) for item in items]
+        rows = [(_item_get(item, "Date"), _item_get(item, "Link")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "Link"])  # pyright: ignore
         out = out.rename(columns={"Date": "Datum"})
     except Exception as e:
@@ -345,10 +376,10 @@ def comments_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [
             (
-                item.get("Date", ""),
-                item.get("Comment", ""),
-                item.get("Photo", ""),
-                item.get("Url", ""),
+                _item_get(item, "Date"),
+                _item_get(item, "Comment"),
+                _item_get(item, "Photo"),
+                _item_get(item, "Url"),
             )
             for item in items
         ]
