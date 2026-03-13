@@ -75,3 +75,39 @@ def test_ads_viewed_unknown_format_returns_empty():
     df = ads_viewed_to_df(make_zip({"ads_viewed.json": {}}))
     assert isinstance(df, pd.DataFrame)
     assert df.empty
+
+
+def test_threads_viewed_dict_format_extracts_correctly():
+    """Older dict-format threads_viewed.json (string_map_data) extracts author and date."""
+    data = {
+        "text_post_app_text_post_app_posts_seen": [
+            {
+                "string_map_data": {
+                    "Author": {"value": "threaduser", "href": ""},
+                    "Time": {"timestamp": 1700000000},
+                    "URL": {"href": "https://threads.net/p/abc", "value": ""},
+                }
+            }
+        ]
+    }
+    df = threads_viewed_to_df(make_zip({"threads_viewed.json": data}))
+    assert not df.empty
+    assert df["Auteur"].iloc[0] == "threaduser"
+    assert "Datum en tijd" in df.columns
+
+
+def test_threads_viewed_list_format_extracts_correctly():
+    """Newer list-format threads_viewed.json (label_values) extracts without crash."""
+    data = [
+        {
+            "timestamp": 1700000000,
+            "label_values": [
+                {"label": "Author", "value": "threaduser", "href": ""},
+                {"label": "URL", "href": "https://threads.net/p/abc", "value": ""},
+            ],
+        }
+    ]
+    df = threads_viewed_to_df(make_zip({"threads_viewed.json": data}))
+    assert isinstance(df, pd.DataFrame)
+    assert not df.empty
+    assert df["Auteur"].iloc[0] == "threaduser"

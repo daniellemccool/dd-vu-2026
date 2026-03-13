@@ -514,19 +514,28 @@ def threads_viewed_to_df(instagram_zip: str) -> pd.DataFrame:
     datapoints = []
 
     try:
-        items = data["text_post_app_text_post_app_posts_seen"]  # pyright: ignore
-        for item in items:
-            string_map_data = item.get("string_map_data", {})
-            author = _first_present(string_map_data, ["Author", "Auteur"])
-            time = _first_present(string_map_data, ["Time", "Tijd"])
-            url = _first_present(string_map_data, ["URL"])
-            datapoints.append((
-                eh.fix_latin1_string(str(author.get("value", ""))),
-                url.get("href", ""),
-                eh.epoch_to_iso(time.get("timestamp", "")),
-            ))
+        if isinstance(data, dict):
+            items = data["text_post_app_text_post_app_posts_seen"]  # pyright: ignore
+            for item in items:
+                string_map_data = item.get("string_map_data", {})
+                author = _first_present(string_map_data, ["Author", "Auteur"])
+                time = _first_present(string_map_data, ["Time", "Tijd"])
+                url = _first_present(string_map_data, ["URL"])
+                datapoints.append((
+                    eh.fix_latin1_string(str(author.get("value", ""))),
+                    url.get("href", ""),
+                    eh.epoch_to_iso(time.get("timestamp", "")),
+                ))
+        else:
+            for item in data:  # pyright: ignore
+                owner_name, owner_username, url = _extract_owner_details(item.get("label_values", []))
+                datapoints.append((
+                    owner_username or owner_name,
+                    url,
+                    eh.epoch_to_iso(item.get("timestamp", "")),
+                ))
 
-        out = pd.DataFrame(datapoints, columns=["Author", "URL", "Date"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Author", "URL", "Date"])  # pyright: ignore
         out = _sort_and_rename(out, "Date", {"Author": "Auteur", "Date": "Datum en tijd"})
 
     except Exception as e:
