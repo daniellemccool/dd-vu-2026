@@ -65,8 +65,9 @@ def test_ads_viewed_dict_format_does_not_crash():
     }
     df = ads_viewed_to_df(make_zip({"ads_viewed.json": data}))
     assert isinstance(df, pd.DataFrame)
-    # If the key guess is correct we get a row; if wrong we get an empty df — both are acceptable
-    # The key requirement is no unhandled exception and no crash.
+    assert not df.empty
+    assert len(df) == 1
+    assert df["Account"].iloc[0] == "testaccount"
 
 
 def test_ads_viewed_unknown_format_returns_empty():
