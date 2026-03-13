@@ -29,3 +29,11 @@ bash release.sh                 # build all 7 platforms → releases/*.zip
 - `packages/python` — Python extraction scripts (per-platform, script.py)
 - `packages/feldspar` — workflow UI framework (React/TypeScript)
 - `packages/data-collector` — host app / dev server
+
+## Architecture
+See [ARCHITECTURE.md](ARCHITECTURE.md) for package responsibilities, dependency rules,
+and where new code belongs. Key points:
+- `feldspar/` is upstream infrastructure — almost never modify it
+- Custom UI components go in `data-collector/`, not `feldspar/`
+- `script.py` calls helpers — it never builds pages from raw props
+- Python dependency direction: `script.py → helpers/ → api/` (never reverse)
