@@ -48,7 +48,7 @@ def test_ads_viewed_list_format_extracts_correctly():
     assert not df.empty
     assert len(df) == 1
     assert "Datum en tijd" in df.columns
-    assert df["Account"].iloc[0] == "testaccount"
+    assert df["Accountnaam"].iloc[0] == "testaccount"
 
 
 def test_ads_viewed_dict_format_does_not_crash():
@@ -67,7 +67,7 @@ def test_ads_viewed_dict_format_does_not_crash():
     assert isinstance(df, pd.DataFrame)
     assert not df.empty
     assert len(df) == 1
-    assert df["Account"].iloc[0] == "testaccount"
+    assert df["Accountnaam"].iloc[0] == "testaccount"
 
 
 def test_ads_viewed_unknown_format_returns_empty():
@@ -161,7 +161,7 @@ def test_story_likes_dict_format_extracts_correctly():
     }
     df = story_likes_to_df(make_zip({"story_likes.json": data}))
     assert not df.empty
-    assert df["Account"].iloc[0] == "storyauthor"
+    assert df["Accountnaam"].iloc[0] == "storyauthor"
     assert "Datum en tijd" in df.columns
 
 
@@ -178,7 +178,7 @@ def test_story_likes_list_format_does_not_crash():
     df = story_likes_to_df(make_zip({"story_likes.json": data}))
     assert isinstance(df, pd.DataFrame)
     assert not df.empty
-    assert df["Account"].iloc[0] == "storyauthor"
+    assert df["Accountnaam"].iloc[0] == "storyauthor"
 
 
 def test_post_comments_reads_multiple_numbered_files():

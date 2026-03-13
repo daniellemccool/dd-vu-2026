@@ -79,6 +79,10 @@ DDP_CATEGORIES = [
 
 
 def _zip_member_names(instagram_zip: str) -> list[str]:
+    # Opens the zip directly (not via eh wrappers) because we only need the
+    # member list, not file contents. Any BadZipFile here propagates to the
+    # caller's try/except. The seek guard mirrors what eh.extract_file_from_zip
+    # does internally so BytesIO arguments are positioned correctly.
     if hasattr(instagram_zip, "seek"):
         instagram_zip.seek(0)  # type: ignore[union-attr]
 
@@ -408,8 +412,8 @@ def ads_viewed_to_df(instagram_zip: str) -> pd.DataFrame:
                 eh.epoch_to_iso(item.get("timestamp", "")),
             ))
 
-        out = pd.DataFrame(datapoints, columns=["Account", "Name", "URL", "Date"])  # pyright: ignore
-        out = _sort_and_rename(out, "Date", {"Name": "Naam", "Date": "Datum en tijd"})
+        out = pd.DataFrame(datapoints, columns=["Accountnaam", "Naam", "URL", "Datum en tijd"])  # pyright: ignore
+        out = out.sort_values("Datum en tijd", ascending=False)
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -509,8 +513,8 @@ def story_likes_to_df(instagram_zip: str) -> pd.DataFrame:
                     eh.epoch_to_iso(item.get("timestamp", "")),
                 ))
 
-        out = pd.DataFrame(datapoints, columns=["Account", "Date"])  # pyright: ignore
-        out = _sort_and_rename(out, "Date", {"Date": "Datum en tijd"})
+        out = pd.DataFrame(datapoints, columns=["Accountnaam", "Datum en tijd"])  # pyright: ignore
+        out = out.sort_values("Datum en tijd", ascending=False)
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
