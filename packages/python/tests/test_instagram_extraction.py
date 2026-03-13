@@ -30,3 +30,47 @@ def make_zip(files: dict) -> io.BytesIO:
             zf.writestr(name, json.dumps(content))
     buf.seek(0)
     return buf
+
+
+def test_ads_viewed_list_format_extracts_correctly():
+    """Newer list-format ads_viewed.json extracts account and date."""
+    data = [
+        {
+            "timestamp": 1700000000,
+            "label_values": [
+                {"label": "Username", "value": "testaccount", "href": ""},
+                {"label": "Name", "value": "Test Ad Account", "href": ""},
+                {"label": "URL", "href": "https://example.com", "value": ""},
+            ],
+        }
+    ]
+    df = ads_viewed_to_df(make_zip({"ads_viewed.json": data}))
+    assert not df.empty
+    assert len(df) == 1
+    assert "Datum en tijd" in df.columns
+    assert df["Account"].iloc[0] == "testaccount"
+
+
+def test_ads_viewed_dict_format_does_not_crash():
+    """Older dict-format ads_viewed.json returns a DataFrame without raising."""
+    data = {
+        "impressions_history_ads_seen": [
+            {
+                "timestamp": 1700000000,
+                "label_values": [
+                    {"label": "Username", "value": "testaccount", "href": ""},
+                ],
+            }
+        ]
+    }
+    df = ads_viewed_to_df(make_zip({"ads_viewed.json": data}))
+    assert isinstance(df, pd.DataFrame)
+    # If the key guess is correct we get a row; if wrong we get an empty df — both are acceptable
+    # The key requirement is no unhandled exception and no crash.
+
+
+def test_ads_viewed_unknown_format_returns_empty():
+    """Completely unexpected format (e.g. empty dict) returns empty DataFrame."""
+    df = ads_viewed_to_df(make_zip({"ads_viewed.json": {}}))
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty

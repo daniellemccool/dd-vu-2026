@@ -7,6 +7,10 @@ Assumptions:
 It handles DDPs in the english language with filetype JSON.
 """
 import logging
+import json
+import re
+from typing import Any
+import zipfile
 
 import pandas as pd
 
@@ -51,6 +55,7 @@ DDP_CATEGORIES = [
             "eligibility.json",
             "pending_follow_requests.json",
             "videos_watched.json",
+            "ads_viewed.json",
             "ads_interests.json",
             "account_searches.json",
             "profile_searches.json",
@@ -58,16 +63,92 @@ DDP_CATEGORIES = [
             "saved_posts.json",
             "following.json",
             "posts_viewed.json",
+            "post_comments_1.json",
             "recently_unfollowed_accounts.json",
             "post_comments.json",
             "account_information.json",
             "accounts_you're_not_interested_in.json",
+            "liked_comments.json",
+            "story_likes.json",
+            "threads_viewed.json",
             "use_cross-app_messaging.json",
             "profile_changes.json",
             "reels.json",
         ],
     )
 ]
+
+
+def _zip_member_names(instagram_zip: str) -> list[str]:
+    if hasattr(instagram_zip, "seek"):
+        instagram_zip.seek(0)  # type: ignore[union-attr]
+
+    with zipfile.ZipFile(instagram_zip, "r") as zf:
+        return zf.namelist()
+
+
+def _read_json_member(instagram_zip: str, member_name: str) -> dict[str, Any] | list[Any]:
+    if hasattr(instagram_zip, "seek"):
+        instagram_zip.seek(0)  # type: ignore[union-attr]
+
+    with zipfile.ZipFile(instagram_zip, "r") as zf:
+        return json.loads(zf.read(member_name).decode("utf-8"))
+
+
+def _read_json_members_matching(instagram_zip: str, pattern: str) -> list[dict[str, Any] | list[Any]]:
+    compiled = re.compile(pattern)
+    return [
+        _read_json_member(instagram_zip, member_name)
+        for member_name in _zip_member_names(instagram_zip)
+        if compiled.search(member_name)
+    ]
+
+
+def _sort_and_rename(out: pd.DataFrame, date_column: str, renamed: dict[str, str]) -> pd.DataFrame:
+    out = out.sort_values(by=date_column, key=eh.sort_isotimestamp_empty_timestamp_last)
+    return out.rename(columns=renamed)
+
+
+def _first_present(data: dict[str, Any], keys: list[str]) -> dict[str, Any]:
+    for key in keys:
+        value = data.get(key)
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
+def _extract_owner_details(label_values: list[dict[str, Any]]) -> tuple[str, str, str]:
+    owner_name = ""
+    owner_username = ""
+    url = ""
+
+    def visit(node: Any) -> None:
+        nonlocal owner_name, owner_username, url
+
+        if isinstance(node, list):
+            for item in node:
+                visit(item)
+            return
+
+        if not isinstance(node, dict):
+            return
+
+        label = str(node.get("label", ""))
+        value = str(node.get("value", ""))
+        href = str(node.get("href", ""))
+
+        if label == "URL" and not url:
+            url = href or value
+        elif label in {"Naam", "Name"} and not owner_name:
+            owner_name = eh.fix_latin1_string(value)
+        elif label in {"Gebruikersnaam", "Username", "Author"} and not owner_username:
+            owner_username = eh.fix_latin1_string(value)
+
+        for child in node.values():
+            visit(child)
+
+    visit(label_values)
+    return owner_name, owner_username, url
 
 
 
@@ -93,13 +174,12 @@ def followers_to_df(instagram_zip: str) -> pd.DataFrame:
         for item in items:
             d = eh.dict_denester(item)
             datapoints.append((
-                eh.fix_latin1_string(eh.find_item(d, "value")),
+                eh.fix_latin1_string(eh.find_item(d, "value") or eh.find_item(d, "title")),
                 eh.find_item(d, "href"),
                 eh.epoch_to_iso(eh.find_item(d, "timestamp"))
             ))
-        out = pd.DataFrame(datapoints, columns=["Account", "Link", "Date"]) # pyright: ignore
-        out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
-        out = out.rename(columns={"Date": "Datum"})
+        out = pd.DataFrame(datapoints, columns=["Account", "URL", "Date"]) # pyright: ignore
+        out = _sort_and_rename(out, "Date", {"Date": "Datum en tijd"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -121,11 +201,10 @@ def profile_searches_to_df(instagram_zip: str) -> pd.DataFrame:
             d = eh.dict_denester(item)
             datapoints.append((
                 eh.epoch_to_iso(eh.find_item(d, "timestamp")),
-                eh.fix_latin1_string(eh.find_item(d, "value")),
+                eh.fix_latin1_string(eh.find_item(d, "title") or eh.find_item(d, "value")),
             ))
         out = pd.DataFrame(datapoints, columns=["Timestamp", "Name"]) # pyright: ignore
-        out = out.sort_values(by="Timestamp", key=eh.sort_isotimestamp_empty_timestamp_last)
-        out = out.rename(columns={"Timestamp": "Datum en tijd", "Name": "Naam"})
+        out = _sort_and_rename(out, "Timestamp", {"Timestamp": "Datum en tijd", "Name": "Naam"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -145,16 +224,18 @@ def saved_posts_to_df(instagram_zip: str) -> pd.DataFrame:
         items = data["saved_saved_media"]  # pyright: ignore
         for item in items:
             title = eh.fix_latin1_string(item.get("title", ""))
-            string_list = item.get("string_list_data", [{}])
-            entry = string_list[0] if string_list else {}
+            if "string_list_data" in item:
+                string_list = item.get("string_list_data", [{}])
+                entry = string_list[0] if string_list else {}
+            else:
+                entry = _first_present(item.get("string_map_data", {}), ["Saved on", "Opgeslagen op"])
             datapoints.append((
                 title,
                 entry.get("href", ""),
                 eh.epoch_to_iso(entry.get("timestamp", "")),
             ))
         out = pd.DataFrame(datapoints, columns=["Title", "Href", "Timestamp"]) # pyright: ignore
-        out = out.sort_values(by="Timestamp", key=eh.sort_isotimestamp_empty_timestamp_last)
-        out = out.rename(columns={"Title": "Titel", "Href": "URL", "Timestamp": "Datum en tijd"})
+        out = _sort_and_rename(out, "Timestamp", {"Title": "Titel", "Href": "URL", "Timestamp": "Datum en tijd"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -165,28 +246,35 @@ def saved_posts_to_df(instagram_zip: str) -> pd.DataFrame:
 def posts_viewed_to_df(instagram_zip: str) -> pd.DataFrame:
 
     b = eh.extract_file_from_zip(instagram_zip, "posts_viewed.json")
-    d = eh.read_json_from_bytes(b)
+    data = eh.read_json_from_bytes(b)
 
     out = pd.DataFrame()
     datapoints = []
 
     try:
-        items = d["impressions_history_posts_seen"] # pyright: ignore
-        for item in items:
-            data = item.get("string_map_data", {})
-            account_name = data.get("Author", {}).get("value", None)
-            if "Time" in data:
-                timestamp = data.get("Time", {}).get("timestamp", "")
-            else:
-                timestamp = data.get("Tijd", {}).get("timestamp", "")
+        if isinstance(data, dict):
+            items = data["impressions_history_posts_seen"]  # pyright: ignore
+            for item in items:
+                string_map_data = item.get("string_map_data", {})
+                author = _first_present(string_map_data, ["Author", "Auteur"])
+                time = _first_present(string_map_data, ["Time", "Tijd"])
+                url = _first_present(string_map_data, ["URL"])
+                datapoints.append((
+                    eh.fix_latin1_string(str(author.get("value", ""))),
+                    url.get("href", ""),
+                    eh.epoch_to_iso(time.get("timestamp", "")),
+                ))
+        else:
+            for item in data:  # pyright: ignore
+                owner_name, owner_username, url = _extract_owner_details(item.get("label_values", []))
+                datapoints.append((
+                    owner_username or owner_name,
+                    url,
+                    eh.epoch_to_iso(item.get("timestamp", "")),
+                ))
 
-            datapoints.append((
-                account_name,
-                eh.epoch_to_iso(timestamp)
-            ))
-        out = pd.DataFrame(datapoints, columns=["Author", "Date"]) # pyright: ignore
-        out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
-        out = out.rename(columns={"Author": "Auteur", "Date": "Datum"})
+        out = pd.DataFrame(datapoints, columns=["Author", "URL", "Date"]) # pyright: ignore
+        out = _sort_and_rename(out, "Date", {"Author": "Auteur", "Date": "Datum en tijd"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -198,28 +286,35 @@ def posts_viewed_to_df(instagram_zip: str) -> pd.DataFrame:
 def videos_watched_to_df(instagram_zip: str) -> pd.DataFrame:
 
     b = eh.extract_file_from_zip(instagram_zip, "videos_watched.json")
-    d = eh.read_json_from_bytes(b)
+    data = eh.read_json_from_bytes(b)
 
     out = pd.DataFrame()
     datapoints = []
 
     try:
-        items = d["impressions_history_videos_watched"] # pyright: ignore
-        for item in items:
-            data = item.get("string_map_data", {})
-            account_name = data.get("Author", {}).get("value", None)
-            if "Time" in data:
-                timestamp = data.get("Time", {}).get("timestamp", "")
-            else:
-                timestamp = data.get("Tijd", {}).get("timestamp", "")
+        if isinstance(data, dict):
+            items = data["impressions_history_videos_watched"]  # pyright: ignore
+            for item in items:
+                string_map_data = item.get("string_map_data", {})
+                author = _first_present(string_map_data, ["Author", "Auteur"])
+                time = _first_present(string_map_data, ["Time", "Tijd"])
+                url = _first_present(string_map_data, ["URL"])
+                datapoints.append((
+                    eh.fix_latin1_string(str(author.get("value", ""))),
+                    url.get("href", ""),
+                    eh.epoch_to_iso(time.get("timestamp", "")),
+                ))
+        else:
+            for item in data:  # pyright: ignore
+                owner_name, owner_username, url = _extract_owner_details(item.get("label_values", []))
+                datapoints.append((
+                    owner_username or owner_name,
+                    url,
+                    eh.epoch_to_iso(item.get("timestamp", "")),
+                ))
 
-            datapoints.append((
-                account_name,
-                eh.epoch_to_iso(timestamp)
-            ))
-        out = pd.DataFrame(datapoints, columns=["Author", "Date"]) # pyright: ignore
-        out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
-        out = out.rename(columns={"Author": "Auteur", "Date": "Datum"})
+        out = pd.DataFrame(datapoints, columns=["Author", "URL", "Date"]) # pyright: ignore
+        out = _sort_and_rename(out, "Date", {"Author": "Auteur", "Date": "Datum en tijd"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -240,13 +335,12 @@ def following_to_df(instagram_zip: str) -> pd.DataFrame:
         for item in items:
             d = eh.dict_denester(item)
             datapoints.append((
-                eh.fix_latin1_string(eh.find_item(d, "value")),
+                eh.fix_latin1_string(eh.find_item(d, "title") or eh.find_item(d, "value")),
                 eh.find_item(d, "href"),
                 eh.epoch_to_iso(eh.find_item(d, "timestamp"))
             ))
-        out = pd.DataFrame(datapoints, columns=["Account", "Link", "Date"]) # pyright: ignore
-        out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
-        out = out.rename(columns={"Date": "Datum"})
+        out = pd.DataFrame(datapoints, columns=["Account", "URL", "Date"]) # pyright: ignore
+        out = _sort_and_rename(out, "Date", {"Date": "Datum en tijd"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -264,18 +358,176 @@ def liked_posts_to_df(instagram_zip: str) -> pd.DataFrame:
     datapoints = []
 
     try:
-        items = data["likes_media_likes"] #pyright: ignore
-        for item in items:
-            d = eh.dict_denester(item)
+        if isinstance(data, dict):
+            items = data["likes_media_likes"] #pyright: ignore
+            for item in items:
+                d = eh.dict_denester(item)
+                datapoints.append((
+                    eh.fix_latin1_string(eh.find_item(d, "title")),
+                    eh.fix_latin1_string(eh.find_item(d, "value")),
+                    ", ".join(eh.find_items(d, "href")),
+                    eh.epoch_to_iso(eh.find_item(d, "timestamp"))
+                ))
+        else:
+            for item in data:  # pyright: ignore
+                owner_name, owner_username, url = _extract_owner_details(item.get("label_values", []))
+                datapoints.append((
+                    owner_username or owner_name,
+                    owner_name,
+                    url,
+                    eh.epoch_to_iso(item.get("timestamp", "")),
+                ))
+        out = pd.DataFrame(datapoints, columns=["Account name", "Value", "URL", "Date"]) # pyright: ignore
+        out = _sort_and_rename(out, "Date", {"Account name": "Accountnaam", "Value": "Waarde", "Date": "Datum en tijd"})
+
+    except Exception as e:
+        logger.error("Exception caught: %s", e)
+
+    return out
+
+
+def ads_viewed_to_df(instagram_zip: str) -> pd.DataFrame:
+
+    b = eh.extract_file_from_zip(instagram_zip, "ads_viewed.json")
+    data = eh.read_json_from_bytes(b)
+
+    out = pd.DataFrame()
+    datapoints = []
+
+    try:
+        if isinstance(data, list):
+            items = data
+        elif isinstance(data, dict):
+            items = data.get("impressions_history_ads_seen", [])  # pyright: ignore
+        else:
+            items = []
+
+        for item in items:  # pyright: ignore
+            owner_name, owner_username, url = _extract_owner_details(item.get("label_values", []))
             datapoints.append((
-                eh.fix_latin1_string(eh.find_item(d, "title")),
-                eh.fix_latin1_string(eh.find_item(d, "value")),
-                eh.find_items(d, "href"),
-                eh.epoch_to_iso(eh.find_item(d, "timestamp"))
+                owner_username or owner_name,
+                owner_name,
+                url,
+                eh.epoch_to_iso(item.get("timestamp", "")),
             ))
-        out = pd.DataFrame(datapoints, columns=["Account name", "Value", "Link", "Date"]) # pyright: ignore
-        out = out.sort_values(by="Date", key=eh.sort_isotimestamp_empty_timestamp_last)
-        out = out.rename(columns={"Account name": "Accountnaam", "Value": "Waarde", "Date": "Datum"})
+
+        out = pd.DataFrame(datapoints, columns=["Account", "Name", "URL", "Date"])  # pyright: ignore
+        out = _sort_and_rename(out, "Date", {"Name": "Naam", "Date": "Datum en tijd"})
+
+    except Exception as e:
+        logger.error("Exception caught: %s", e)
+
+    return out
+
+
+def liked_comments_to_df(instagram_zip: str) -> pd.DataFrame:
+
+    b = eh.extract_file_from_zip(instagram_zip, "liked_comments.json")
+    data = eh.read_json_from_bytes(b)
+
+    out = pd.DataFrame()
+    datapoints = []
+
+    try:
+        items = data["likes_comment_likes"]  # pyright: ignore
+        for item in items:
+            entry = item.get("string_list_data", [{}])[0]
+            datapoints.append((
+                eh.fix_latin1_string(item.get("title", "")),
+                eh.fix_latin1_string(entry.get("value", "")),
+                entry.get("href", ""),
+                eh.epoch_to_iso(entry.get("timestamp", "")),
+            ))
+
+        out = pd.DataFrame(datapoints, columns=["Account name", "Value", "URL", "Date"]) # pyright: ignore
+        out = _sort_and_rename(out, "Date", {"Account name": "Accountnaam", "Value": "Waarde", "Date": "Datum en tijd"})
+
+    except Exception as e:
+        logger.error("Exception caught: %s", e)
+
+    return out
+
+
+def post_comments_to_df(instagram_zip: str) -> pd.DataFrame:
+
+    out = pd.DataFrame()
+    datapoints = []
+
+    try:
+        data_files = _read_json_members_matching(instagram_zip, r"(^|/)post_comments(?:_\d+)?\.json$")
+        for data in data_files:
+            items = data if isinstance(data, list) else data.get("comments_media_comments", [])
+            for item in items:  # pyright: ignore[assignment]
+                string_map_data = item.get("string_map_data", {})
+                comment = _first_present(string_map_data, ["Comment", "Opmerking"])
+                owner = _first_present(string_map_data, ["Media Owner", "Media-eigenaar"])
+                time = _first_present(string_map_data, ["Time", "Tijd"])
+                media_entry = item.get("media_list_data", [{}])[0]
+                datapoints.append((
+                    eh.fix_latin1_string(str(comment.get("value", ""))),
+                    eh.fix_latin1_string(str(owner.get("value", ""))),
+                    media_entry.get("uri", ""),
+                    eh.epoch_to_iso(time.get("timestamp", "")),
+                ))
+
+        out = pd.DataFrame(datapoints, columns=["Comment", "Media owner", "URL", "Date"]) # pyright: ignore
+        out = _sort_and_rename(out, "Date", {"Comment": "Reactie", "Media owner": "Media-eigenaar", "Date": "Datum en tijd"})
+
+    except Exception as e:
+        logger.error("Exception caught: %s", e)
+
+    return out
+
+
+def story_likes_to_df(instagram_zip: str) -> pd.DataFrame:
+
+    b = eh.extract_file_from_zip(instagram_zip, "story_likes.json")
+    data = eh.read_json_from_bytes(b)
+
+    out = pd.DataFrame()
+    datapoints = []
+
+    try:
+        items = data["story_activities_story_likes"]  # pyright: ignore
+        for item in items:
+            entry = item.get("string_list_data", [{}])[0]
+            datapoints.append((
+                eh.fix_latin1_string(item.get("title", "")),
+                eh.epoch_to_iso(entry.get("timestamp", "")),
+            ))
+
+        out = pd.DataFrame(datapoints, columns=["Account", "Date"]) # pyright: ignore
+        out = _sort_and_rename(out, "Date", {"Date": "Datum en tijd"})
+
+    except Exception as e:
+        logger.error("Exception caught: %s", e)
+
+    return out
+
+
+def threads_viewed_to_df(instagram_zip: str) -> pd.DataFrame:
+
+    b = eh.extract_file_from_zip(instagram_zip, "threads_viewed.json")
+    data = eh.read_json_from_bytes(b)
+
+    out = pd.DataFrame()
+    datapoints = []
+
+    try:
+        items = data["text_post_app_text_post_app_posts_seen"]  # pyright: ignore
+        for item in items:
+            string_map_data = item.get("string_map_data", {})
+            author = _first_present(string_map_data, ["Author", "Auteur"])
+            time = _first_present(string_map_data, ["Time", "Tijd"])
+            url = _first_present(string_map_data, ["URL"])
+            datapoints.append((
+                eh.fix_latin1_string(str(author.get("value", ""))),
+                url.get("href", ""),
+                eh.epoch_to_iso(time.get("timestamp", "")),
+            ))
+
+        out = pd.DataFrame(datapoints, columns=["Author", "URL", "Date"]) # pyright: ignore
+        out = _sort_and_rename(out, "Date", {"Author": "Auteur", "Date": "Datum en tijd"})
 
     except Exception as e:
         logger.error("Exception caught: %s", e)
@@ -310,6 +562,18 @@ def extraction(instagram_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTab
             }),
         ),
         d3i_props.PropsUIPromptConsentFormTableViz(
+            id="instagram_ads_viewed",
+            data_frame=ads_viewed_to_df(instagram_zip),
+            title=props.Translatable({
+                "en": "Ads viewed on Instagram",
+                "nl": "Advertenties bekeken op Instagram"
+            }),
+            description=props.Translatable({
+                "en": "List of ads that you viewed on Instagram.",
+                "nl": "Lijst van advertenties die je op Instagram hebt bekeken."
+            }),
+        ),
+        d3i_props.PropsUIPromptConsentFormTableViz(
             id="instagram_posts_viewed",
             data_frame=posts_viewed_to_df(instagram_zip),
             title=props.Translatable({
@@ -328,7 +592,7 @@ def extraction(instagram_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTab
                     },
                     "type": "area",
                     "group": {
-                        "column": "Datum",
+                        "column": "Datum en tijd",
                         "dateFormat": "auto",
                     },
                     "values": [{
@@ -343,7 +607,7 @@ def extraction(instagram_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTab
                     },
                     "type": "bar",
                     "group": {
-                        "column": "Datum",
+                        "column": "Datum en tijd",
                         "dateFormat": "hour_cycle",
                         "label": "Hour of the day",
                     },
@@ -372,7 +636,7 @@ def extraction(instagram_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTab
                     },
                     "type": "area",
                     "group": {
-                        "column": "Datum",
+                        "column": "Datum en tijd",
                         "dateFormat": "auto"
                     },
                     "values": [{
@@ -381,6 +645,30 @@ def extraction(instagram_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTab
                     }]
                 }
             ]
+        ),
+        d3i_props.PropsUIPromptConsentFormTableViz(
+            id="instagram_post_comments",
+            data_frame=post_comments_to_df(instagram_zip),
+            title=props.Translatable({
+                "en": "Comments posted on Instagram",
+                "nl": "Reacties geplaatst op Instagram"
+            }),
+            description=props.Translatable({
+                "en": "List of comments you posted on Instagram.",
+                "nl": "Lijst van reacties die je op Instagram hebt geplaatst."
+            }),
+        ),
+        d3i_props.PropsUIPromptConsentFormTableViz(
+            id="instagram_liked_comments",
+            data_frame=liked_comments_to_df(instagram_zip),
+            title=props.Translatable({
+                "en": "Instagram liked comments",
+                "nl": "Instagram-reacties die je leuk vond"
+            }),
+            description=props.Translatable({
+                "en": "List of comments that you liked on Instagram.",
+                "nl": "Lijst van reacties die je leuk vond op Instagram."
+            }),
         ),
         d3i_props.PropsUIPromptConsentFormTableViz(
             id="instagram_liked_posts",
@@ -415,6 +703,30 @@ def extraction(instagram_zip: str) -> list[d3i_props.PropsUIPromptConsentFormTab
             description=props.Translatable({
                 "en": "List of profiles you have searched for on Instagram.",
                 "nl": "Lijst van profielen die je op Instagram hebt gezocht."
+            }),
+        ),
+        d3i_props.PropsUIPromptConsentFormTableViz(
+            id="instagram_story_likes",
+            data_frame=story_likes_to_df(instagram_zip),
+            title=props.Translatable({
+                "en": "Story likes on Instagram",
+                "nl": "Story-likes op Instagram"
+            }),
+            description=props.Translatable({
+                "en": "List of Instagram stories you liked.",
+                "nl": "Lijst van Instagram-stories die je leuk vond."
+            }),
+        ),
+        d3i_props.PropsUIPromptConsentFormTableViz(
+            id="instagram_threads_viewed",
+            data_frame=threads_viewed_to_df(instagram_zip),
+            title=props.Translatable({
+                "en": "Threads viewed",
+                "nl": "Threads bekeken"
+            }),
+            description=props.Translatable({
+                "en": "List of Threads posts you viewed.",
+                "nl": "Lijst van Threads-berichten die je hebt bekeken."
             }),
         ),
         d3i_props.PropsUIPromptConsentFormTableViz(
