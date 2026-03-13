@@ -147,3 +147,35 @@ def test_liked_comments_list_format_does_not_crash():
     assert isinstance(df, pd.DataFrame)
     assert not df.empty
     assert "Datum en tijd" in df.columns
+
+
+def test_story_likes_dict_format_extracts_correctly():
+    """Older dict-format story_likes.json extracts account name and date."""
+    data = {
+        "story_activities_story_likes": [
+            {
+                "title": "storyauthor",
+                "string_list_data": [{"timestamp": 1700000000}],
+            }
+        ]
+    }
+    df = story_likes_to_df(make_zip({"story_likes.json": data}))
+    assert not df.empty
+    assert df["Account"].iloc[0] == "storyauthor"
+    assert "Datum en tijd" in df.columns
+
+
+def test_story_likes_list_format_does_not_crash():
+    """Newer list-format story_likes.json returns a DataFrame without raising."""
+    data = [
+        {
+            "timestamp": 1700000000,
+            "label_values": [
+                {"label": "Username", "value": "storyauthor", "href": ""},
+            ],
+        }
+    ]
+    df = story_likes_to_df(make_zip({"story_likes.json": data}))
+    assert isinstance(df, pd.DataFrame)
+    assert not df.empty
+    assert df["Account"].iloc[0] == "storyauthor"

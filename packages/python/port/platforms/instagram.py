@@ -498,15 +498,23 @@ def story_likes_to_df(instagram_zip: str) -> pd.DataFrame:
     datapoints = []
 
     try:
-        items = data["story_activities_story_likes"]  # pyright: ignore
-        for item in items:
-            entry = item.get("string_list_data", [{}])[0]
-            datapoints.append((
-                eh.fix_latin1_string(item.get("title", "")),
-                eh.epoch_to_iso(entry.get("timestamp", "")),
-            ))
+        if isinstance(data, dict):
+            items = data["story_activities_story_likes"]  # pyright: ignore
+            for item in items:
+                entry = item.get("string_list_data", [{}])[0]
+                datapoints.append((
+                    eh.fix_latin1_string(item.get("title", "")),
+                    eh.epoch_to_iso(entry.get("timestamp", "")),
+                ))
+        else:
+            for item in data:  # pyright: ignore
+                owner_name, owner_username, _ = _extract_owner_details(item.get("label_values", []))
+                datapoints.append((
+                    owner_username or owner_name,
+                    eh.epoch_to_iso(item.get("timestamp", "")),
+                ))
 
-        out = pd.DataFrame(datapoints, columns=["Account", "Date"]) # pyright: ignore
+        out = pd.DataFrame(datapoints, columns=["Account", "Date"])  # pyright: ignore
         out = _sort_and_rename(out, "Date", {"Date": "Datum en tijd"})
 
     except Exception as e:
