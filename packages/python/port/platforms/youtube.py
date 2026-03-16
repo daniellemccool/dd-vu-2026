@@ -34,6 +34,7 @@ DDP_CATEGORIES = [
             "search-history.json",
             "watch-history.json",
             "subscriptions.csv",
+            "comments.csv",
         ],
     ),
     DDPCategory(
@@ -44,6 +45,7 @@ DDP_CATEGORIES = [
             "abonnementen.csv",
             "kijkgeschiedenis.json",
             "zoekgeschiedenis.json",
+            "reacties.csv",
         ],
     ),
 ]
@@ -128,6 +130,21 @@ def subscriptions_to_df(youtube_zip: str, validation) -> pd.DataFrame:
     return df
 
 
+def comments_to_df(youtube_zip: str, validation) -> pd.DataFrame:
+    if validation.current_ddp_category.language == Language.NL:
+        file_name = "reacties.csv"
+    else:
+        file_name = "comments.csv"
+
+    b = eh.extract_file_from_zip(youtube_zip, file_name)
+    df = eh.read_csv_from_bytes_to_df(b)
+
+    if not df.empty:
+        df = df.rename(columns={"Aanmaaktijdstempel reactie": "Datum en tijd"})
+
+    return df
+
+
 def extraction(zip: str, validation: ValidateInput) -> list[d3i_props.PropsUIPromptConsentFormTableViz]:
     tables = [
         d3i_props.PropsUIPromptConsentFormTableViz(
@@ -187,6 +204,29 @@ def extraction(zip: str, validation: ValidateInput) -> list[d3i_props.PropsUIPro
                 "en": "YouTube channels you are subscribed to.",
                 "nl": "YouTube-kanalen waarop je bent geabonneerd.",
             }),
+        ),
+        d3i_props.PropsUIPromptConsentFormTableViz(
+            id="youtube_comments",
+            data_frame=comments_to_df(zip, validation),
+            title=props.Translatable({
+                "en": "Your comments",
+                "nl": "Je reacties",
+            }),
+            description=props.Translatable({
+                "en": "Comments you posted on YouTube videos and posts.",
+                "nl": "Reacties die je op YouTube-video's en -posts hebt geplaatst.",
+            }),
+            visualizations=[
+                {
+                    "title": {
+                        "en": "Most common words in your comments",
+                        "nl": "Meest voorkomende woorden in je reacties",
+                    },
+                    "type": "wordcloud",
+                    "textColumn": "Reactietekst",
+                    "tokenize": True,
+                }
+            ],
         ),
     ]
 
