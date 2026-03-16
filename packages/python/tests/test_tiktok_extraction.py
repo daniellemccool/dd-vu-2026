@@ -82,9 +82,30 @@ def test_follower_to_df_activity_path():
     df = follower_to_df(data)
     assert not df.empty
     assert len(df) == 2
-    assert "Datum" in df.columns
+    assert "Datum en tijd" in df.columns
     assert "Gebruikersnaam" in df.columns
-    assert df["Gebruikersnaam"].iloc[0] == "alice"
+    assert df["Gebruikersnaam"].iloc[0] == "bob"
+
+
+def test_follower_to_df_your_activity_path():
+    """follower_to_df also handles the newer 'Your Activity' top-level key."""
+    data = {
+        "Your Activity": {
+            "Follower List": {
+                "FansList": [{"Date": "2024-01-01 10:00:00", "UserName": "newuser"}]
+            }
+        }
+    }
+    df = follower_to_df(data)
+    assert not df.empty
+    assert df["Gebruikersnaam"].iloc[0] == "newuser"
+
+
+def test_follower_to_df_returns_empty_df_on_missing_data():
+    """follower_to_df returns empty DataFrame when section is absent."""
+    df = follower_to_df({})
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty
 
 
 # ---------------------------------------------------------------------------
@@ -104,9 +125,30 @@ def test_following_to_df_your_activity_path():
     }
     df = following_to_df(data)
     assert not df.empty
-    assert "Datum" in df.columns
+    assert "Datum en tijd" in df.columns
     assert "Gebruikersnaam" in df.columns
     assert df["Gebruikersnaam"].iloc[0] == "charlie"
+
+
+def test_following_to_df_activity_following_list_path():
+    """following_to_df handles the legacy 'Activity > Following List > Following' path."""
+    data = {
+        "Activity": {
+            "Following List": {
+                "Following": [{"Date": "2023-06-01 08:00:00", "UserName": "olduser"}]
+            }
+        }
+    }
+    df = following_to_df(data)
+    assert not df.empty
+    assert df["Gebruikersnaam"].iloc[0] == "olduser"
+
+
+def test_following_to_df_returns_empty_df_on_missing_data():
+    """following_to_df returns empty DataFrame when section is absent."""
+    df = following_to_df({})
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +156,7 @@ def test_following_to_df_your_activity_path():
 # ---------------------------------------------------------------------------
 
 def test_searches_to_df_extracts_search_term():
-    """searches_to_df extracts Zoekterm and Datum from Activity > Search History > SearchList."""
+    """searches_to_df extracts Zoekterm and Datum en tijd from Activity > Search History > SearchList."""
     data = {
         "Activity": {
             "Search History": {
@@ -128,9 +170,15 @@ def test_searches_to_df_extracts_search_term():
     df = searches_to_df(data)
     assert not df.empty
     assert len(df) == 2
-    assert "Datum" in df.columns
+    assert "Datum en tijd" in df.columns
     assert "Zoekterm" in df.columns
-    assert df["Zoekterm"].iloc[0] == "funny cats"
+    assert df["Zoekterm"].iloc[0] == "cooking tips"
+
+
+def test_searches_to_df_returns_empty_df_on_missing_data():
+    df = searches_to_df({})
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty
 
 
 # ---------------------------------------------------------------------------
@@ -158,12 +206,18 @@ def test_hashtag_to_df_extracts_names_and_links():
     assert df["Hashtag-link"].iloc[0] == "https://tiktok.com/tag/travel"
 
 
+def test_hashtag_to_df_returns_empty_df_on_missing_data():
+    df = hashtag_to_df({})
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty
+
+
 # ---------------------------------------------------------------------------
 # comments_to_df
 # ---------------------------------------------------------------------------
 
 def test_comments_to_df_extracts_comment_text():
-    """comments_to_df extracts Reactie, Foto, URL, and Datum from Comment > Comments > CommentsList."""
+    """comments_to_df extracts Reactie, Foto, URL, and Datum en tijd from Comment > Comments > CommentsList."""
     data = {
         "Comment": {
             "Comments": {
@@ -181,11 +235,17 @@ def test_comments_to_df_extracts_comment_text():
     df = comments_to_df(data)
     assert not df.empty
     assert len(df) == 1
-    assert "Datum" in df.columns
+    assert "Datum en tijd" in df.columns
     assert "Reactie" in df.columns
     assert "Foto" in df.columns
     assert "URL" in df.columns
     assert df["Reactie"].iloc[0] == "Great video!"
+
+
+def test_comments_to_df_returns_empty_df_on_missing_data():
+    df = comments_to_df({})
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty
 
 
 # ---------------------------------------------------------------------------
@@ -193,7 +253,7 @@ def test_comments_to_df_extracts_comment_text():
 # ---------------------------------------------------------------------------
 
 def test_watch_history_to_df_extracts_date_and_link():
-    """watch_history_to_df extracts Datum and Link from Activity > Video Browsing History > VideoList."""
+    """watch_history_to_df extracts Datum en tijd and URL from Activity > Video Browsing History > VideoList."""
     data = {
         "Activity": {
             "Video Browsing History": {
@@ -205,9 +265,15 @@ def test_watch_history_to_df_extracts_date_and_link():
     }
     df = watch_history_to_df(data)
     assert not df.empty
-    assert "Datum" in df.columns
-    assert "Link" in df.columns
-    assert df["Link"].iloc[0] == "https://tiktok.com/video/abc"
+    assert "Datum en tijd" in df.columns
+    assert "URL" in df.columns
+    assert df["URL"].iloc[0] == "https://tiktok.com/video/abc"
+
+
+def test_watch_history_to_df_returns_empty_df_on_missing_data():
+    df = watch_history_to_df({})
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty
 
 
 # ---------------------------------------------------------------------------
@@ -215,7 +281,7 @@ def test_watch_history_to_df_extracts_date_and_link():
 # ---------------------------------------------------------------------------
 
 def test_like_list_to_df_extracts_date_and_link():
-    """like_list_to_df extracts Datum and Link from Activity > Like List > ItemFavoriteList."""
+    """like_list_to_df extracts Datum en tijd and URL from Activity > Like List > ItemFavoriteList."""
     data = {
         "Activity": {
             "Like List": {
@@ -227,9 +293,15 @@ def test_like_list_to_df_extracts_date_and_link():
     }
     df = like_list_to_df(data)
     assert not df.empty
-    assert "Datum" in df.columns
-    assert "Link" in df.columns
-    assert df["Link"].iloc[0] == "https://tiktok.com/video/liked1"
+    assert "Datum en tijd" in df.columns
+    assert "URL" in df.columns
+    assert df["URL"].iloc[0] == "https://tiktok.com/video/liked1"
+
+
+def test_like_list_to_df_returns_empty_df_on_missing_data():
+    df = like_list_to_df({})
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty
 
 
 def test_like_list_to_df_likes_and_favorites_path():
@@ -245,8 +317,8 @@ def test_like_list_to_df_likes_and_favorites_path():
     }
     df = like_list_to_df(data)
     assert not df.empty
-    assert "Datum" in df.columns
-    assert "Link" in df.columns
+    assert "Datum en tijd" in df.columns
+    assert "URL" in df.columns
 
 
 # ---------------------------------------------------------------------------
@@ -254,7 +326,7 @@ def test_like_list_to_df_likes_and_favorites_path():
 # ---------------------------------------------------------------------------
 
 def test_favorite_videos_to_df_extracts_date_and_link():
-    """favorite_videos_to_df extracts Datum and Link from Activity > Favorite Videos > FavoriteVideoList."""
+    """favorite_videos_to_df extracts Datum en tijd and URL from Activity > Favorite Videos > FavoriteVideoList."""
     data = {
         "Activity": {
             "Favorite Videos": {
@@ -266,9 +338,15 @@ def test_favorite_videos_to_df_extracts_date_and_link():
     }
     df = favorite_videos_to_df(data)
     assert not df.empty
-    assert "Datum" in df.columns
-    assert "Link" in df.columns
-    assert df["Link"].iloc[0] == "https://tiktok.com/video/fav"
+    assert "Datum en tijd" in df.columns
+    assert "URL" in df.columns
+    assert df["URL"].iloc[0] == "https://tiktok.com/video/fav"
+
+
+def test_favorite_videos_to_df_returns_empty_df_on_missing_data():
+    df = favorite_videos_to_df({})
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty
 
 
 # ---------------------------------------------------------------------------
@@ -276,7 +354,7 @@ def test_favorite_videos_to_df_extracts_date_and_link():
 # ---------------------------------------------------------------------------
 
 def test_share_history_to_df_extracts_all_fields():
-    """share_history_to_df extracts Datum, Gedeelde inhoud, Link, Methode from ShareHistoryList."""
+    """share_history_to_df extracts Datum en tijd, Gedeelde inhoud, URL, Methode from ShareHistoryList."""
     data = {
         "Activity": {
             "Share History": {
@@ -293,20 +371,26 @@ def test_share_history_to_df_extracts_all_fields():
     }
     df = share_history_to_df(data)
     assert not df.empty
-    assert "Datum" in df.columns
+    assert "Datum en tijd" in df.columns
     assert "Gedeelde inhoud" in df.columns
-    assert "Link" in df.columns
+    assert "URL" in df.columns
     assert "Methode" in df.columns
     assert df["Methode"].iloc[0] == "WhatsApp"
     assert df["Gedeelde inhoud"].iloc[0] == "Funny clip"
+
+
+def test_share_history_to_df_returns_empty_df_on_missing_data():
+    df = share_history_to_df({})
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty
 
 
 # ---------------------------------------------------------------------------
 # activity_summary_to_df
 # ---------------------------------------------------------------------------
 
-def test_activity_summary_to_df_new_format_keys():
-    """activity_summary_to_df extracts rows from Activity > Activity Summary > ActivitySummaryMap."""
+def test_activity_summary_to_df_activity_key():
+    """activity_summary_to_df extracts rows via the older 'Activity' top-level key."""
     data = {
         "Activity": {
             "Activity Summary": {
@@ -325,8 +409,8 @@ def test_activity_summary_to_df_new_format_keys():
     assert len(df) == 3
 
 
-def test_activity_summary_to_df_old_format_keys():
-    """activity_summary_to_df also handles the 'Your Activity' top-level key."""
+def test_activity_summary_to_df_your_activity_key():
+    """activity_summary_to_df also handles the newer 'Your Activity' top-level key."""
     data = {
         "Your Activity": {
             "Activity Summary": {
@@ -344,18 +428,26 @@ def test_activity_summary_to_df_old_format_keys():
     assert len(df) == 2
 
 
+def test_activity_summary_to_df_returns_empty_df_on_missing_data():
+    df = activity_summary_to_df({})
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty
+
+
 # ---------------------------------------------------------------------------
 # settings_to_df
 # ---------------------------------------------------------------------------
 
 def test_settings_to_df_extracts_keyword_filters():
-    """settings_to_df extracts Instelling and Trefwoorden from App Settings > Settings > SettingsMap."""
+    """settings_to_df extracts Instelling and Trefwoorden from App Settings > Settings > SettingsMap > Content Preferences."""
     data = {
         "App Settings": {
             "Settings": {
                 "SettingsMap": {
-                    "Following Feed Filter Keywords": "spam,ads",
-                    "For You Feed Filter Keywords": "violence",
+                    "Content Preferences": {
+                        "Keyword filters for videos in Following feed": ["spam", "ads"],
+                        "Keyword filters for videos in For You feed": ["violence"],
+                    }
                 }
             }
         }
@@ -365,3 +457,60 @@ def test_settings_to_df_extracts_keyword_filters():
     assert "Instelling" in df.columns
     assert "Trefwoorden" in df.columns
     assert len(df) == 2
+
+
+def test_settings_to_df_returns_empty_df_on_missing_data():
+    df = settings_to_df({})
+    assert isinstance(df, pd.DataFrame)
+    assert df.empty
+
+
+def test_activity_summary_no_duplicate_rows_when_old_and_new_keys_present():
+    """When a DDP contains both old and new key names for the same metric,
+    only one row per metric should appear."""
+    data = {
+        "Activity": {
+            "Activity Summary": {
+                "ActivitySummaryMap": {
+                    "commentVideoCount": 10,
+                    "sharedVideoCount": 5,
+                    "videosCommentedOnSinceAccountRegistration": 10,
+                    "videosSharedSinceAccountRegistration": 5,
+                }
+            }
+        }
+    }
+    df = activity_summary_to_df(data)
+    assert df["Metriek"].duplicated().sum() == 0
+    assert len(df) == 2
+
+
+def test_searches_to_df_sorted_newest_first():
+    """Results are sorted by date descending (newest entry first)."""
+    data = {
+        "Activity": {
+            "Search History": {
+                "SearchList": [
+                    {"Date": "2023-01-01 00:00:00", "SearchTerm": "older"},
+                    {"Date": "2024-06-01 00:00:00", "SearchTerm": "newer"},
+                ]
+            }
+        }
+    }
+    df = searches_to_df(data)
+    assert "Datum en tijd" in df.columns
+    assert df["Datum en tijd"].iloc[0] == "2024-06-01 00:00:00"
+    assert df["Datum en tijd"].iloc[1] == "2023-01-01 00:00:00"
+
+
+def test_watch_history_to_df_has_datum_en_tijd_column():
+    data = {
+        "Activity": {
+            "Video Browsing History": {
+                "VideoList": [{"Date": "2023-12-01 10:00:00", "Link": "https://tiktok.com/v/abc"}]
+            }
+        }
+    }
+    df = watch_history_to_df(data)
+    assert "Datum en tijd" in df.columns
+    assert "Datum" not in df.columns

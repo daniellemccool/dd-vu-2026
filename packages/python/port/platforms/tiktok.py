@@ -113,19 +113,21 @@ def activity_summary_to_df(data: dict) -> pd.DataFrame:
         if not isinstance(summary, dict):
             return out
 
-        field_map = {
-            "videoCount": "Videos watched since registration",
-            "commentVideoCount": "Videos commented on since registration",
-            "sharedVideoCount": "Videos shared since registration",
-            "videosWatchedToTheEndSinceAccountRegistration": "Videos watched to the end since registration",
-            "videosCommentedOnSinceAccountRegistration": "Videos commented on since registration",
-            "videosSharedSinceAccountRegistration": "Videos shared since registration",
-        }
-        rows = [
-            (label, summary.get(key, ""))
-            for key, label in field_map.items()
-            if key in summary
+        # Each entry: (label, [preferred_key, fallback_key, ...])
+        # First key found in summary wins — avoids duplicate rows when both
+        # old- and new-format keys are present in the same DDP.
+        metric_priority = [
+            ("Videos watched since registration", ["videoCount"]),
+            ("Videos watched to the end since registration", ["videosWatchedToTheEndSinceAccountRegistration"]),
+            ("Videos commented on since registration", ["videosCommentedOnSinceAccountRegistration", "commentVideoCount"]),
+            ("Videos shared since registration", ["videosSharedSinceAccountRegistration", "sharedVideoCount"]),
         ]
+        rows = []
+        for label, keys in metric_priority:
+            for key in keys:
+                if key in summary:
+                    rows.append((label, summary[key]))
+                    break
         out = pd.DataFrame(rows, columns=["Metric", "Count"])  # pyright: ignore
         out = out.rename(columns={"Metric": "Metriek", "Count": "Aantal"})
     except Exception as e:
@@ -161,7 +163,6 @@ def settings_to_df(data: dict) -> pd.DataFrame:
                 for key, label in field_map.items()
                 if key in content_preferences
             )
-
         out = pd.DataFrame(rows, columns=["Setting", "Keywords"])  # pyright: ignore
         out = out.rename(columns={"Setting": "Instelling", "Keywords": "Trefwoorden"})
     except Exception as e:
@@ -185,7 +186,8 @@ def favorite_videos_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [(_item_get(item, "Date"), _item_get(item, "Link")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "Link"])  # pyright: ignore
-        out = out.rename(columns={"Date": "Datum"})
+        out = out.rename(columns={"Date": "Datum en tijd", "Link": "URL"})
+        out = out.sort_values("Datum en tijd", ascending=False)
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -207,7 +209,8 @@ def follower_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [(_item_get(item, "Date"), _item_get(item, "UserName")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "UserName"])  # pyright: ignore
-        out = out.rename(columns={"Date": "Datum", "UserName": "Gebruikersnaam"})
+        out = out.rename(columns={"Date": "Datum en tijd", "UserName": "Gebruikersnaam"})
+        out = out.sort_values("Datum en tijd", ascending=False)
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -229,7 +232,8 @@ def following_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [(_item_get(item, "Date"), _item_get(item, "UserName")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "UserName"])  # pyright: ignore
-        out = out.rename(columns={"Date": "Datum", "UserName": "Gebruikersnaam"})
+        out = out.rename(columns={"Date": "Datum en tijd", "UserName": "Gebruikersnaam"})
+        out = out.sort_values("Datum en tijd", ascending=False)
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -277,7 +281,8 @@ def like_list_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [(_item_get(item, "Date"), _item_get(item, "Link")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "Link"])  # pyright: ignore
-        out = out.rename(columns={"Date": "Datum"})
+        out = out.rename(columns={"Date": "Datum en tijd", "Link": "URL"})
+        out = out.sort_values("Datum en tijd", ascending=False)
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -300,7 +305,8 @@ def searches_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [(_item_get(item, "Date"), _item_get(item, "SearchTerm")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "SearchTerm"])  # pyright: ignore
-        out = out.rename(columns={"Date": "Datum", "SearchTerm": "Zoekterm"})
+        out = out.rename(columns={"Date": "Datum en tijd", "SearchTerm": "Zoekterm"})
+        out = out.sort_values("Datum en tijd", ascending=False)
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -332,10 +338,12 @@ def share_history_to_df(data: dict) -> pd.DataFrame:
         ]
         out = pd.DataFrame(rows, columns=["Date", "SharedContent", "Link", "Method"])  # pyright: ignore
         out = out.rename(columns={
-            "Date": "Datum",
+            "Date": "Datum en tijd",
             "SharedContent": "Gedeelde inhoud",
+            "Link": "URL",
             "Method": "Methode",
         })
+        out = out.sort_values("Datum en tijd", ascending=False)
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -358,7 +366,8 @@ def watch_history_to_df(data: dict) -> pd.DataFrame:
             return out
         rows = [(_item_get(item, "Date"), _item_get(item, "Link")) for item in items]
         out = pd.DataFrame(rows, columns=["Date", "Link"])  # pyright: ignore
-        out = out.rename(columns={"Date": "Datum"})
+        out = out.rename(columns={"Date": "Datum en tijd", "Link": "URL"})
+        out = out.sort_values("Datum en tijd", ascending=False)
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
@@ -384,7 +393,8 @@ def comments_to_df(data: dict) -> pd.DataFrame:
             for item in items
         ]
         out = pd.DataFrame(rows, columns=["Date", "Comment", "Photo", "Url"])  # pyright: ignore
-        out = out.rename(columns={"Date": "Datum", "Comment": "Reactie", "Photo": "Foto", "Url": "URL"})
+        out = out.rename(columns={"Date": "Datum en tijd", "Comment": "Reactie", "Photo": "Foto", "Url": "URL"})
+        out = out.sort_values("Datum en tijd", ascending=False)
     except Exception as e:
         logger.error("Exception caught: %s", e)
     return out
