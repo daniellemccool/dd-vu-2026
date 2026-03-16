@@ -414,6 +414,33 @@ def _read_json(json_input: Any, json_reader: Callable[[Any, str], Any]) -> dict[
     return out
 
 
+def _salvage_truncated_json(b: bytes) -> dict[Any, Any] | list[Any]:
+    """
+    Attempt to recover data from a truncated JSON file.
+
+    Finds the last complete record boundary (},\\n) and tries to close the
+    structure. Handles both top-level dicts containing arrays (Google Takeout
+    format) and bare top-level arrays.
+    """
+    try:
+        text = b.decode('utf-8', errors='replace')
+        last_boundary = text.rfind('},\n')
+        if last_boundary == -1:
+            return {}
+        truncated = text[:last_boundary + 1]
+        for closing in ('\n]}', '\n]'):
+            try:
+                result = json.loads(truncated + closing)
+                if isinstance(result, (dict, list)):
+                    logger.warning("JSON appears truncated; salvaged data up to last complete record")
+                    return result
+            except json.JSONDecodeError:
+                continue
+    except Exception:
+        pass
+    return {}
+
+
 def read_json_from_bytes(json_bytes: io.BytesIO) -> dict[Any, Any] | list[Any]:
     """
     Reads JSON data from a BytesIO buffer.
@@ -424,6 +451,7 @@ def read_json_from_bytes(json_bytes: io.BytesIO) -> dict[Any, Any] | list[Any]:
     Returns:
         dict[Any, Any] | list[Any]: The parsed JSON data as a dictionary or list.
                                     Returns an empty dictionary if parsing fails.
+                                    If the JSON is truncated, salvages complete records.
 
     Examples::
 
@@ -436,6 +464,8 @@ def read_json_from_bytes(json_bytes: io.BytesIO) -> dict[Any, Any] | list[Any]:
     try:
         b = json_bytes.read()
         out = _read_json(b, _json_reader_bytes)
+        if not out:
+            out = _salvage_truncated_json(b)
     except Exception as e:
         logger.error("%s, could not convert json bytes", e)
 
