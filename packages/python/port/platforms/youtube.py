@@ -6,6 +6,7 @@ This module provides an example flow of a YouTube data donation study
 Assumptions:
 It handles DDPs in the Dutch and English language with filetype JSON.
 """
+import json
 import logging
 
 import pandas as pd
@@ -130,6 +131,14 @@ def subscriptions_to_df(youtube_zip: str, validation) -> pd.DataFrame:
     return df
 
 
+def _parse_comment_text(raw: str) -> str:
+    try:
+        segments = json.loads(f"[{raw}]")
+        return " ".join(s["text"] for s in segments if isinstance(s, dict) and s.get("text", "").strip())
+    except Exception:
+        return raw
+
+
 def comments_to_df(youtube_zip: str, validation) -> pd.DataFrame:
     if validation.current_ddp_category.language == Language.NL:
         file_name = "reacties.csv"
@@ -140,7 +149,19 @@ def comments_to_df(youtube_zip: str, validation) -> pd.DataFrame:
     df = eh.read_csv_from_bytes_to_df(b)
 
     if not df.empty:
-        df = df.rename(columns={"Aanmaaktijdstempel reactie": "Datum en tijd"})
+        df = df.rename(columns={
+            "Comment ID": "Reactie-ID",
+            "Channel ID": "Kanaal-ID",
+            "Comment create timestamp": "Datum en tijd",
+            "Aanmaaktijdstempel reactie": "Datum en tijd",
+            "Price": "Prijs",
+            "Video ID": "Video-ID",
+            "Comment text": "Reactietekst",
+        })
+        keep = ["Datum en tijd", "Kanaal-ID", "Reactietekst", "Reactie-ID", "Video-ID", "Prijs"]
+        df = df[[col for col in keep if col in df.columns]]  # pyright: ignore
+        if "Reactietekst" in df.columns:
+            df["Reactietekst"] = df["Reactietekst"].apply(_parse_comment_text)
 
     return df
 
