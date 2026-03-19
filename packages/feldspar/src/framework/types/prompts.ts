@@ -7,7 +7,8 @@ export type PropsUIPrompt =
   PropsUIPromptRadioInput |
   PropsUIPromptConsentForm |
   PropsUIPromptConfirm |
-  PropsUIPromptText
+  PropsUIPromptText |
+  PropsUIPromptTextArea
 
 export function isPropsUIPrompt (arg: any): arg is PropsUIPrompt {
   return isPropsUIPromptFileInput(arg) ||
@@ -87,10 +88,21 @@ export function isPropsUIPromptText (arg: any): arg is PropsUIPromptText {
   return isInstanceOf<PropsUIPromptText>(arg, 'PropsUIPromptText', ['text'])
 }
 
+export interface PropsUIPromptTextArea {
+  __type__: 'PropsUIPromptTextArea'
+  id: string
+  initialValue: string
+  rows?: number
+}
+export function isPropsUIPromptTextArea (arg: any): arg is PropsUIPromptTextArea {
+  return isInstanceOf<PropsUIPromptTextArea>(arg, 'PropsUIPromptTextArea', ['id', 'initialValue'])
+}
+
 export interface PropsUIDataSubmissionButtons {
   __type__: 'PropsUIDataSubmissionButtons'
   donateQuestion?: Text
   donateButton?: Text
+  cancelButton?: Text
   onDonate: () => void
   onCancel: () => void
   waiting: boolean

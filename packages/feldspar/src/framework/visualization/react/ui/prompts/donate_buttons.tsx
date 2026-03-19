@@ -11,9 +11,10 @@ interface Props {
   locale: string;
   donateQuestion?: Text;
   donateButton?: Text;
+  cancelButton?: Text;
 }
 
-export const DonateButtons = ({ onDonate, onCancel, locale, donateQuestion, donateButton }: Props): JSX.Element => {
+export const DonateButtons = ({ onDonate, onCancel, locale, donateQuestion, donateButton, cancelButton }: Props): JSX.Element => {
     const [waiting, setWaiting] = useState(false);
     
     const handleDonate = useCallback(() => {
@@ -41,7 +42,7 @@ export const DonateButtons = ({ onDonate, onCancel, locale, donateQuestion, dona
           spinning={waiting}
         />
         <LabelButton
-          label={Translator.translate(cancelButtonLabel, locale)}
+          label={Translator.translate(cancelButton ?? cancelButtonLabel, locale)}
           onClick={onCancel}
           color="text-grey1"
         />
