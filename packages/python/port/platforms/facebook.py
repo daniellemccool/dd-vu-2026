@@ -171,6 +171,9 @@ def last_28_days_to_df(facebook_zip: str) -> pd.DataFrame:
     out = pd.DataFrame()
     datapoints = []
 
+    if not d:
+        return out
+
     try:
         denested_dict = eh.dict_denester(d)
         datapoints.append((
