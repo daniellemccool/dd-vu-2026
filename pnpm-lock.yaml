@@ -4178,7 +4178,7 @@ snapshots:
   '@types/jest@30.0.0':
     dependencies:
       expect: 30.2.0
-      pretty-format: 30.2.0
+      pretty-format: 30.4.1
 
   '@types/json-schema@7.0.15': {}
 
